@@ -1,0 +1,117 @@
+# ==================== MATLAB ====================
+# MATLAB autosave files
+*.asv
+*.m~
+
+# MATLAB temp files
+*.mat
+slprj/
+
+# ==================== 数据文件 ====================
+# 雷达和音频数据文件（体积大，不上传）
+*.bin
+*.wav
+*.pcm
+
+# 数据目录
+audio/HUAWEI_LIO-AL00/
+audio/local/
+logs/
+data/
+multimodal_data/
+
+# 元数据和日志（可选择性上传）
+*_meta.json
+capture_log_*.csv
+
+# ==================== Java/Gradle ====================
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# ==================== 系统文件 ====================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# ==================== IDE 和编辑器 ====================
+# VS Code
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# ==================== 日志和临时文件 ====================
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+
+# ==================== 特定于项目的排除 ====================
+# AudioCenterServer 日志
+AudioCenterServer/logs/
+
+# 测试数据
+test_data/
+temp_radar_test/
+
+# 被试日志
+subject_log.txt
+
+# 音频配置中的设备特定文件
+audio/id-names
+
+# ==================== 敏感信息 ====================
+# 配置文件中可能包含敏感信息
+# 如果有密码或密钥，请确保不上传
+# *.properties
+# config/*.json
