@@ -11,7 +11,7 @@ clc;
 % !!! 请在采集前仔细配置以下参数 !!!
 
 % 【必填】数据存储根目录（采集员需预先手动创建好路径）
-data_root_path = 'D:\multimodal_data\';
+data_root_path = 'F:\testData';
 
 % 【必填】采集时长（秒）
 capture_duration = 5;
@@ -21,7 +21,11 @@ repeat_count = 3;
 
 % 【必填】雷达启动延迟（毫秒）
 % !!! 采集前必须运行 test_radar_startup_delay.m 测量此参数 !!!
-RADAR_STARTUP_DELAY = 1000;  % 默认1000ms，请根据实际测量结果修改
+RADAR_STARTUP_DELAY = 1000;  % 默认1000ms
+
+% 【必填】手机音频启动延迟（毫秒）
+% 用于补偿手机启动录音的延迟，确保雷达和音频对齐yh-ssk
+PHONE_STARTUP_DELAY = 2200;  % 默认1000ms
 
 % 服务器配置
 server_ip = '127.0.0.1';      % AudioCenterServer 的 IP 地址
@@ -64,8 +68,19 @@ fprintf('  - 雷达延迟: %d 毫秒\n', RADAR_STARTUP_DELAY);
 fprintf('\n========== 加载场景配置 ==========\n');
 
 try
-    % 读取CSV文件
-    scenes_table = readtable(scenes_csv_file, 'Encoding', 'UTF-8');
+    % 读取CSV文件，先尝试UTF-8，如果检测到乱码则切换GBK
+    encoding_used = 'UTF-8';
+    scenes_table = readtable(scenes_csv_file, 'Encoding', encoding_used, 'FileType', 'text');
+    
+    % 简单检测是否存在乱码（出现替换字符�）
+    if height(scenes_table) > 0
+        sample_intro = char(scenes_table.intro(1));
+        if contains(sample_intro, char(65533))  % 65533是�的编码
+            encoding_used = 'GBK';
+            scenes_table = readtable(scenes_csv_file, 'Encoding', encoding_used, 'FileType', 'text');
+        end
+    end
+    fprintf(' 场景文件编码: %s\n', encoding_used);
     
     % 提取场景信息
     scene_list = struct([]);
@@ -109,8 +124,18 @@ try
     
     % 初始时间同步
     fprintf('执行初始时间同步...\n');
-    [offset, rtt] = audioClient.syncTime();
-    fprintf(' 时间同步完成 (偏移: %.2f ms, RTT: %.2f ms)\n', offset, rtt);
+    offset = audioClient.syncTime();
+    fprintf(' 时间同步完成 (偏移: %d ms)\n', offset);
+    
+    % 偏移阈值校验
+    % !!! 警告：当前阈值设置较大，仅用于测试 !!!
+    % !!! 正式采集前必须修正服务器时间并改回 100 ms !!!
+    offset_threshold_ms = 30000000;  % 临时设置为30,000,000 ms（约8.3小时）
+    if abs(offset) > offset_threshold_ms
+        error('时间同步偏差过大: %d ms (阈值: %d ms)，请检查服务器系统时间或NTP同步。', offset, offset_threshold_ms);
+    elseif abs(offset) > 100
+        warning('时间同步偏差较大: %d ms，建议修正服务器时间以保证数据精度。', offset);
+    end
     
 catch ME
     error('音频客户端初始化失败: %s', ME.message);
@@ -120,30 +145,26 @@ end
 fprintf('\n========== 初始化雷达连接 ==========\n');
 
 try
-    % 加载雷达DLL
-    if ~exist('RtttNetClientAPI.RtttNetClient', 'class')
-        ErrStatus = Init_RSTD_Connection(RSTD_DLL_Path);
-        if ErrStatus ~= 0
-            error('雷达DLL加载失败，错误代码: %d', ErrStatus);
-        end
-    end
-    fprintf(' 雷达DLL已加载\n');
+    % 调用初始化函数加载DLL并建立连接
+    fprintf('正在初始化雷达...请稍候...\n');
     
-    % 连接雷达
-    Num_Lanes = 4;
-    timeout = 6000;
-    strRsp = RtttNetClientAPI.RtttNetClient.Init();
-    if strcmp(strRsp, 'Init_Done')
-        fprintf(' 雷达连接成功\n');
-    else
-        error('雷达连接失败: %s', strRsp);
+    % 设置超时以防止无限等待
+    t_start = tic;
+    timeout_sec = 30;  % 30秒超时
+    
+    ErrStatus = Init_RSTD_Connection(RSTD_DLL_Path);
+    t_elapsed = toc(t_start);
+    
+    fprintf('初始化耗时: %.2f 秒\n', t_elapsed);
+    
+    if (ErrStatus ~= 30000)
+        error('雷达连接失败，错误代码: %d', ErrStatus);
     end
     
-    % 获取雷达API对象引用
-    ar1 = RtttNetClientAPI.RtttNetClient;
+    fprintf(' 雷达连接成功\n');
     
 catch ME
-    error('雷达初始化失败: %s', ME.message);
+    error('雷达初始化失败: %s\n请确保:\n1. mmWave Studio已启动（在Lua shell中执行: RSTD.NetStart()）\n2. 雷达设备已正确连接', ME.message);
 end
 
 %% ==================== 系统准备完毕 ====================
@@ -158,7 +179,7 @@ fprintf('  [已连接] 雷达设备\n');
 fprintf('  [已完成] 时间同步\n');
 fprintf('========================================\n\n');
 
-%% ==================== 用户输入 ====================
+%% ==================== 用户输入与ID映射 ====================
 fprintf('========== 用户信息确认 ==========\n');
 
 % 输入人员组合
@@ -166,21 +187,73 @@ staff_combo = input('请输入人员组合（例如 yh-ssk）: ', 's');
 if isempty(staff_combo)
     error('人员组合不能为空');
 end
-fprintf('  人员组合: %s\n', staff_combo);
 
-% 构建保存路径
-save_path = fullfile(data_root_path, staff_combo);
-if ~exist(save_path, 'dir')
-    error('保存路径不存在: %s\n请采集员手动创建该目录: %s\\%s', ...
-        save_path, data_root_path, staff_combo);
+% --- ID 映射逻辑 ---
+mapping_file = fullfile(data_root_path, 'subject_mapping.txt');
+subject_id = -1;
+
+% 读取现有映射
+if exist(mapping_file, 'file')
+    fid = fopen(mapping_file, 'r');
+    lines = {};
+    while ~feof(fid)
+        line = fgetl(fid);
+        if ischar(line)
+            lines{end+1} = line;
+        end
+    end
+    fclose(fid);
+    
+    % 查找现有ID
+    for i = 1:length(lines)
+        parts = strsplit(lines{i}, ':');
+        if length(parts) == 2 && strcmp(strtrim(parts{1}), staff_combo)
+            subject_id = str2double(parts{2});
+            fprintf('  [已有ID] %s -> %d\n', staff_combo, subject_id);
+            break;
+        end
+    end
+    
+    % 如果没找到，分配新ID
+    if subject_id == -1
+        % 获取最大ID
+        max_id = 0;
+        for i = 1:length(lines)
+            parts = strsplit(lines{i}, ':');
+            if length(parts) == 2
+                id_val = str2double(parts{2});
+                if id_val > max_id
+                    max_id = id_val;
+                end
+            end
+        end
+        subject_id = max_id + 1;
+        
+        % 追加到映射文件
+        fid = fopen(mapping_file, 'a');
+        fprintf(fid, '%s:%d\n', staff_combo, subject_id);
+        fclose(fid);
+        fprintf('  [新分配ID] %s -> %d\n', staff_combo, subject_id);
+    end
+else
+    % 文件不存在，创建第一个ID
+    subject_id = 1;
+    fid = fopen(mapping_file, 'w');
+    fprintf(fid, '%s:%d\n', staff_combo, subject_id);
+    fclose(fid);
+    fprintf('  [新分配ID] %s -> %d\n', staff_combo, subject_id);
 end
-fprintf('  保存路径: %s\n', save_path);
+
+% 数据保存路径（直接使用根目录）
+save_path = data_root_path;
+fprintf('  数据ID: %d (%s)\n', subject_id, staff_combo);
+fprintf('  数据保存路径: %s\n', save_path);
 
 %% ==================== 初始化日志 ====================
 fprintf('\n========== 初始化采集日志 ==========\n');
 
 % 创建日志文件
-log_filename = sprintf('capture_log_%s.csv', datestr(now, 'yyyymmdd_HHMMSS'));
+log_filename = sprintf('capture_log_%d_%s.csv', subject_id, datestr(now, 'yyyymmdd_HHMMSS'));
 log_filepath = fullfile(save_path, log_filename);
 
 % 写入日志头
@@ -240,15 +313,15 @@ for scene_idx = 1:total_scenes
             continue;  % 跳过此次采集
         end
         
-        % 构建场景ID
-        sceneId = sprintf('%s-%s-%02d', staff_combo, scene.code, repeat_idx);
+        % 构建场景ID（使用数字ID）
+        sceneId = sprintf('%d-%s-%02d', subject_id, scene.code, repeat_idx);
         fprintf('\n场景ID: %s\n', sceneId);
         
         try
             % 执行同步采集
             fprintf('\n开始同步采集...\n');
-            [success, metadata] = syncCapture(audioClient, ar1, sceneId, ...
-                capture_duration, RADAR_STARTUP_DELAY, save_path);
+            [success, metadata] = syncCapture(audioClient, [], sceneId, ...
+                capture_duration, RADAR_STARTUP_DELAY, PHONE_STARTUP_DELAY, save_path);
             
             total_captures = total_captures + 1;
             
@@ -257,8 +330,44 @@ for scene_idx = 1:total_scenes
                 fprintf('\n>>> 采集成功 <<<\n');
                 
                 % 保存元数据
-                saveMetadata(metadata, scene, staff_combo, save_path, repeat_idx);
+                saveMetadata(metadata, scene, staff_combo, subject_id, save_path, repeat_idx);
                 
+                % --- 自动移动音频文件 (.wav) ---
+                try
+                    % 定位服务器音频目录 (假设相对于当前 matlab_client 目录)
+                    audio_server_dir = fullfile('..', 'AudioCenterServer', 'audio');
+                    target_wav = [sceneId, '.wav'];
+                    wav_moved = false;
+                    
+                    % 轮询查找文件 (等待上传完成，最多5秒)
+                    for attempt = 1:5
+                        % 递归搜索 (** 支持子文件夹)
+                        found_wavs = dir(fullfile(audio_server_dir, '**', target_wav));
+                        
+                        if ~isempty(found_wavs)
+                            for fw = 1:length(found_wavs)
+                                src_f = fullfile(found_wavs(fw).folder, found_wavs(fw).name);
+                                dest_f = fullfile(save_path, found_wavs(fw).name);
+                                movefile(src_f, dest_f);
+                                fprintf('  [文件] 已归档音频: %s\n', found_wavs(fw).name);
+                            end
+                            wav_moved = true;
+                            break;
+                        else
+                            if attempt < 5
+                                pause(1); % 未找到，等待1秒重试
+                            end
+                        end
+                    end
+                    
+                    if ~wav_moved
+                        fprintf('  [提示] 未自动归档音频 (可能仍在上传，请检查 AudioCenterServer/audio)\n');
+                    end
+                catch ME_Move
+                    warning('  [警告] 移动音频文件出错: %s', ME_Move.message);
+                end
+                % ------------------------------------
+
                 % 记录成功到日志
                 log_fid = fopen(log_filepath, 'a', 'n', 'UTF-8');
                 fprintf(log_fid, '%s,%d,%s,%d,true,%.2f,%.2f,\n', ...

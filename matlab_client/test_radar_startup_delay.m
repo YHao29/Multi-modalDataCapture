@@ -20,7 +20,11 @@ fprintf('========================================\n\n');
 RSTD_DLL_Path = 'C:\ti\mmwave_studio_02_01_01_00\mmWaveStudio\Clients\RtttNetClientController\RtttNetClientAPI.dll';
 
 % 测试数据保存路径（临时）
+<<<<<<< HEAD
 test_data_path = 'D:\temp_radar_test\';
+=======
+test_data_path = 'F:\temp_radar_test\';
+>>>>>>> 10eacfa (完成毫米波雷达和手机端音频采集联调)
 
 % 测试次数
 test_iterations = 10;
@@ -49,6 +53,7 @@ end
 fprintf('\n========== 初始化雷达连接 ==========\n');
 
 try
+<<<<<<< HEAD
     % 加载雷达DLL
     if ~exist('RtttNetClientAPI.RtttNetClient', 'class')
         ErrStatus = Init_RSTD_Connection(RSTD_DLL_Path);
@@ -71,6 +76,19 @@ try
     
 catch ME
     error('雷达初始化失败: %s\n请确保:\n1. mmWave Studio已启动\n2. 雷达设备已正确连接', ME.message);
+=======
+    % 调用初始化函数加载DLL并建立连接
+    ErrStatus = Init_RSTD_Connection(RSTD_DLL_Path);
+    
+    if (ErrStatus ~= 30000)
+        error('雷达连接失败，错误代码: %d', ErrStatus);
+    end
+    
+    fprintf('  雷达连接成功\n');
+    
+catch ME
+    error('雷达初始化失败: %s\n请确保:\n1. mmWave Studio已启动（在Lua shell中执行: RSTD.NetStart()）\n2. 雷达设备已正确连接', ME.message);
+>>>>>>> 10eacfa (完成毫米波雷达和手机端音频采集联调)
 end
 
 %% ==================== 执行延迟测量 ====================
@@ -89,11 +107,18 @@ for i = 1:test_iterations
         test_filename = sprintf('test_delay_%02d.bin', i);
         test_filepath = fullfile(test_data_path, test_filename);
         
+<<<<<<< HEAD
+=======
+        % 将路径转换为适合Lua的格式（反斜杠转义或用正斜杠）
+        lua_filepath = strrep(test_filepath, '\', '\\');
+        
+>>>>>>> 10eacfa (完成毫米波雷达和手机端音频采集联调)
         % 删除旧文件（如果存在）
         if exist(test_filepath, 'file')
             delete(test_filepath);
         end
         
+<<<<<<< HEAD
         % 配置雷达采集
         Lua_config = sprintf('ar1.CaptureCardConfig_StartRecord("%s", 1)', test_filepath);
         ar1.SendCommand(Lua_config);
@@ -105,10 +130,35 @@ for i = 1:test_iterations
         
         % 发送启动命令
         ar1.SendCommand('ar1.StartFrame()');
+=======
+        fprintf('生成测试文件: %s\n', test_filepath);
+        fprintf('Lua命令路径: %s\n', lua_filepath);
+        
+        % 配置雷达采集
+        Lua_config = sprintf('ar1.CaptureCardConfig_StartRecord("%s", 1)', lua_filepath);
+        fprintf('发送命令: %s\n', Lua_config);
+        RtttNetClientAPI.RtttNetClient.SendCommand(Lua_config);
+        fprintf('已发送配置命令\n');
+        
+        % 等待1000ms确保雷达准备就绪
+        RtttNetClientAPI.RtttNetClient.SendCommand('RSTD.Sleep(1000)');
+        fprintf('等待雷达准备完成\n');
+        
+        % 记录命令发送时间
+        t_cmd = posixtime(datetime('now')) * 1000;  % 毫秒
+        fprintf('发送StartFrame命令，时间戳: %.0f ms\n', t_cmd);
+        
+        % 发送启动命令
+        RtttNetClientAPI.RtttNetClient.SendCommand('ar1.StartFrame()');
+        
+        % 立即等待一下让文件有时间创建
+        pause(0.1);
+>>>>>>> 10eacfa (完成毫米波雷达和手机端音频采集联调)
         
         % 轮询等待文件创建
         file_created = false;
         max_wait_time = 5000;  % 最多等待5秒
+<<<<<<< HEAD
         poll_interval = 10;    % 每10ms检查一次
         
         for wait_ms = 0:poll_interval:max_wait_time
@@ -120,14 +170,63 @@ for i = 1:test_iterations
                     delays(i) = delay_ms;
                     fprintf('文件创建延迟: %.0f ms\n', delay_ms);
                     file_created = true;
+=======
+        poll_interval = 50;    % 每50ms检查一次
+        waited_ms = 0;
+        
+        % 文件名前缀（雷达会自动添加_Raw_0.bin等后缀）
+        filename_prefix = sprintf('test_delay_%02d', i);
+        
+        while waited_ms < max_wait_time
+            % 列出目录中的所有文件
+            if exist(test_data_path, 'dir')
+                dir_contents = dir(test_data_path);
+                % 查找匹配前缀的文件
+                for f = 1:length(dir_contents)
+                    fname = dir_contents(f).name;
+                    % 检查文件是否以前缀开头且是Raw数据文件
+                    if startsWith(fname, filename_prefix) && contains(fname, '_Raw_0.bin')
+                        full_path = fullfile(test_data_path, fname);
+                        file_info = dir(full_path);
+                        if ~isempty(file_info) && file_info.bytes > 0
+                            t_file = posixtime(datetime('now')) * 1000;
+                            delay_ms = t_file - t_cmd;
+                            delays(i) = delay_ms;
+                            fprintf('检测到文件: %s，检测延迟: %.0f ms\n', fname, delay_ms);
+                            file_created = true;
+                            break;
+                        end
+                    end
+                end
+                if file_created
+>>>>>>> 10eacfa (完成毫米波雷达和手机端音频采集联调)
                     break;
                 end
             end
             pause(poll_interval / 1000);
+<<<<<<< HEAD
         end
         
         if ~file_created
             warning('测试 %d: 超时未检测到文件创建', i);
+=======
+            waited_ms = waited_ms + poll_interval;
+        end
+        
+        if ~file_created
+            warning('测试 %d: 超时未检测到文件创建，检查文件路径: %s', i, test_filepath);
+            % 尝试列出目录内容帮助调试
+            if exist(test_data_path, 'dir')
+                dir_contents = dir(test_data_path);
+                fprintf('测试数据目录内容: ');
+                for f = 1:length(dir_contents)
+                    fprintf('%s ', dir_contents(f).name);
+                end
+                fprintf('\n');
+            else
+                fprintf('注意: 测试数据目录不存在或无法访问: %s\n', test_data_path);
+            end
+>>>>>>> 10eacfa (完成毫米波雷达和手机端音频采集联调)
             delays(i) = NaN;
         end
         
@@ -135,7 +234,11 @@ for i = 1:test_iterations
         pause(test_duration);
         
         % 停止采集
+<<<<<<< HEAD
         ar1.SendCommand('ar1.StopFrame()');
+=======
+        RtttNetClientAPI.RtttNetClient.SendCommand('ar1.StopFrame()');
+>>>>>>> 10eacfa (完成毫米波雷达和手机端音频采集联调)
         pause(0.5);
         
         fprintf('  测试 %d 完成\n\n', i);

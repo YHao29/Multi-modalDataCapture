@@ -77,7 +77,8 @@ classdef AudioClient < handle
                                 'MediaType', 'application/json');
             
             % 获取客户端时间戳（毫秒）
-            clientTime = round(posixtime(datetime('now')) * 1000);
+            % 使用 Java System.currentTimeMillis() 避免 MATLAB 时区转换问题
+            clientTime = java.lang.System.currentTimeMillis();
             
             % 发送同步请求
             requestData = struct('client_timestamp', clientTime);
