@@ -64,48 +64,114 @@ fprintf('  - 采集时长: %d 秒\n', capture_duration);
 fprintf('  - 每场景重复: %d 次\n', repeat_count);
 fprintf('  - 雷达延迟: %d 毫秒\n', RADAR_STARTUP_DELAY);
 
-%% ==================== 加载场景列表 ====================
+%% ==================== 加载三层场景配置 ====================
 fprintf('\n========== 加载场景配置 ==========\n');
 
 try
-    % 读取CSV文件，先尝试UTF-8，如果检测到乱码则切换GBK
-    encoding_used = 'UTF-8';
-    scenes_table = readtable(scenes_csv_file, 'Encoding', encoding_used, 'FileType', 'text');
+    % 使用新的工具函数加载三层场景配置
+    [locations, subLocations, actionScenes] = loadHierarchicalScenes();
     
-    % 简单检测是否存在乱码（出现替换字符�）
-    if height(scenes_table) > 0
-        sample_intro = char(scenes_table.intro(1));
-        if contains(sample_intro, char(65533))  % 65533是�的编码
-            encoding_used = 'GBK';
-            scenes_table = readtable(scenes_csv_file, 'Encoding', encoding_used, 'FileType', 'text');
-        end
-    end
-    fprintf(' 场景文件编码: %s\n', encoding_used);
-    
-    % 提取场景信息
-    scene_list = struct([]);
-    for i = 1:height(scenes_table)
-        scene_list(i).idx = scenes_table.idx(i);
-        scene_list(i).intro = char(scenes_table.intro(i));
-        scene_list(i).code = char(scenes_table.code(i));
-    end
-    
-    total_scenes = length(scene_list);
-    fprintf(' 已加载 %d 个场景\n', total_scenes);
-    
-    % 显示前3个场景作为示例
-    fprintf('\n场景示例:\n');
-    for i = 1:min(3, total_scenes)
-        fprintf('  [%d] %s (%s)\n', scene_list(i).idx, ...
-            scene_list(i).intro, scene_list(i).code);
-    end
-    if total_scenes > 3
-        fprintf('  ...\n');
-    end
+    fprintf(' ✓ 场景配置加载完成\n');
+    fprintf('   - 大场景: %d 个\n', length(locations));
+    fprintf('   - 子场景: %d 个\n', length(subLocations));
+    fprintf('   - 动作组合: %d 个\n', length(actionScenes));
     
 catch ME
-    error('加载场景文件失败: %s', ME.message);
+    error('加载场景配置失败: %s', ME.message);
 end
+
+%% ==================== 场景选择交互 ====================
+fprintf('\n========== 场景选择 ==========\n');
+
+% 第1步：选择大场景
+fprintf('\n第1步：选择大场景\n');
+for i = 1:length(locations)
+    fprintf('  [%d] %s - %s\n', i, locations(i).location_name, locations(i).description);
+end
+
+while true
+    location_choice = input(sprintf('请输入大场景编号 (1-%d): ', length(locations)), 's');
+    location_idx = str2double(location_choice);
+    if ~isnan(location_idx) && location_idx >= 1 && location_idx <= length(locations)
+        break;
+    else
+        fprintf('无效输入，请重新输入\n');
+    end
+end
+
+selected_location = locations(location_idx);
+fprintf('\n✓ 已选择大场景: %s\n', selected_location.location_name);
+
+% 第2步：选择子场景（过滤属于所选大场景的子场景）
+fprintf('\n第2步：选择子场景（%s）\n', selected_location.location_name);
+
+% 过滤子场景
+available_subLocations = [];
+sub_idx_mapping = [];
+for i = 1:length(subLocations)
+    if strcmp(subLocations(i).location_id, selected_location.location_id)
+        available_subLocations(end+1) = subLocations(i);
+        sub_idx_mapping(end+1) = i;
+    end
+end
+
+if isempty(available_subLocations)
+    error('所选大场景 %s 没有配置子场景，请检查 sub_locations.csv', selected_location.location_name);
+end
+
+for i = 1:length(available_subLocations)
+    fprintf('  [%d] %s - %s\n', i, available_subLocations(i).sub_location_name, ...
+        available_subLocations(i).description);
+end
+
+while true
+    sub_choice = input(sprintf('请输入子场景编号 (1-%d): ', length(available_subLocations)), 's');
+    sub_idx = str2double(sub_choice);
+    if ~isnan(sub_idx) && sub_idx >= 1 && sub_idx <= length(available_subLocations)
+        break;
+    else
+        fprintf('无效输入，请重新输入\n');
+    end
+end
+
+selected_subLocation = available_subLocations(sub_idx);
+fprintf('\n✓ 已选择子场景: %s\n', selected_subLocation.sub_location_name);
+
+% 第3步：确认动作组合场景
+fprintf('\n第3步：确认动作组合场景\n');
+fprintf('========================================\n');
+fprintf('采集配置:\n');
+fprintf('  大场景: %s\n', selected_location.location_name);
+fprintf('  子场景: %s\n', selected_subLocation.sub_location_name);
+fprintf('  动作组合: 共 %d 个场景\n', length(actionScenes));
+fprintf('========================================\n');
+
+% 显示前5个动作组合作为示例
+fprintf('\n动作组合场景示例:\n');
+for i = 1:min(5, length(actionScenes))
+    fprintf('  [%d] %s (%s)\n', actionScenes(i).idx, ...
+        actionScenes(i).intro, actionScenes(i).code);
+end
+if length(actionScenes) > 5
+    fprintf('  ... (共 %d 个)\n', length(actionScenes));
+end
+
+% 用户最终确认
+fprintf('\n');
+while true
+    confirm = input('确认开始采集？(y/n): ', 's');
+    if strcmpi(confirm, 'y')
+        break;
+    elseif strcmpi(confirm, 'n')
+        error('用户取消采集');
+    else
+        fprintf('无效输入，请输入 y 或 n\n');
+    end
+end
+
+% 将动作组合赋值给scene_list（保持后续代码兼容）
+scene_list = actionScenes;
+total_scenes = length(scene_list);
 
 %% ==================== 初始化 AudioClient ====================
 fprintf('\n========== 初始化音频客户端 ==========\n');
@@ -244,21 +310,39 @@ else
     fprintf('  [新分配ID] %s -> %d\n', staff_combo, subject_id);
 end
 
-% 数据保存路径（直接使用根目录）
-save_path = data_root_path;
+% 数据保存路径（层次化目录结构）
+subject_dir = fullfile(data_root_path, 'subjects', sprintf('subject_%03d', subject_id));
+radar_dir = fullfile(subject_dir, 'radar');
+audio_dir = fullfile(subject_dir, 'audio');
+
+% 创建必要的目录
+if ~exist(subject_dir, 'dir')
+    mkdir(subject_dir);
+    fprintf('  [创建] 被试目录: %s\n', subject_dir);
+end
+if ~exist(radar_dir, 'dir')
+    mkdir(radar_dir);
+    fprintf('  [创建] 雷达数据目录\n');
+end
+if ~exist(audio_dir, 'dir')
+    mkdir(audio_dir);
+    fprintf('  [创建] 音频数据目录\n');
+end
+
+save_path = subject_dir;  % 保存路径指向被试目录
 fprintf('  数据ID: %d (%s)\n', subject_id, staff_combo);
 fprintf('  数据保存路径: %s\n', save_path);
 
 %% ==================== 初始化日志 ====================
 fprintf('\n========== 初始化采集日志 ==========\n');
 
-% 创建日志文件
+% 创建日志文件（保存在被试目录下）
 log_filename = sprintf('capture_log_%d_%s.csv', subject_id, datestr(now, 'yyyymmdd_HHMMSS'));
 log_filepath = fullfile(save_path, log_filename);
 
-% 写入日志头
+% 写入日志头（新增location和sub_location列）
 log_fid = fopen(log_filepath, 'w', 'n', 'UTF-8');
-fprintf(log_fid, 'timestamp,scene_idx,scene_code,repeat_index,success,sntp_offset,rtt,error_message\n');
+fprintf(log_fid, 'timestamp,location_id,location_name,sub_location_id,sub_location_name,scene_idx,scene_code,repeat_index,success,sntp_offset,rtt,error_message\n');
 fclose(log_fid);
 fprintf(' 日志文件: %s\n', log_filename);
 
@@ -298,10 +382,13 @@ for scene_idx = 1:total_scenes
                 break;
             elseif strcmpi(response, 's')
                 fprintf('已跳过此次采集\n');
-                % 记录跳过到日志
+                % 记录跳过到日志（包含三层场景信息）
                 log_fid = fopen(log_filepath, 'a', 'n', 'UTF-8');
-                fprintf(log_fid, '%s,%d,%s,%d,false,0,0,skipped by user\n', ...
-                    datestr(now, 'yyyy-mm-dd HH:MM:SS'), scene.idx, scene.code, repeat_idx);
+                fprintf(log_fid, '%s,%s,%s,%s,%s,%d,%s,%d,false,0,0,skipped by user\n', ...
+                    datestr(now, 'yyyy-mm-dd HH:MM:SS'), ...
+                    selected_location.location_id, selected_location.location_name, ...
+                    selected_subLocation.sub_location_id, selected_subLocation.sub_location_name, ...
+                    scene.idx, scene.code, repeat_idx);
                 fclose(log_fid);
                 break;
             else
@@ -313,15 +400,18 @@ for scene_idx = 1:total_scenes
             continue;  % 跳过此次采集
         end
         
-        % 构建场景ID（使用数字ID）
-        sceneId = sprintf('%d-%s-%02d', subject_id, scene.code, repeat_idx);
+        % 构建场景ID（包含三层场景信息）
+        % 格式: sample_{样本ID}_{LocationID}_{SubLocationID}_{ActionCode}
+        sample_id = (scene_idx - 1) * repeat_count + repeat_idx;
+        sceneId = sprintf('sample_%03d_%s_%s_%s', sample_id, ...
+            selected_location.location_id, selected_subLocation.sub_location_id, scene.code);
         fprintf('\n场景ID: %s\n', sceneId);
         
         try
-            % 执行同步采集
+            % 执行同步采集（传递radar和audio子目录路径）
             fprintf('\n开始同步采集...\n');
             [success, metadata] = syncCapture(audioClient, [], sceneId, ...
-                capture_duration, RADAR_STARTUP_DELAY, PHONE_STARTUP_DELAY, save_path);
+                capture_duration, RADAR_STARTUP_DELAY, PHONE_STARTUP_DELAY, radar_dir, audio_dir);
             
             total_captures = total_captures + 1;
             
@@ -329,8 +419,9 @@ for scene_idx = 1:total_scenes
                 success_captures = success_captures + 1;
                 fprintf('\n>>> 采集成功 <<<\n');
                 
-                % 保存元数据
-                saveMetadata(metadata, scene, staff_combo, subject_id, save_path, repeat_idx);
+                % 保存元数据（传递三层场景信息）
+                saveMetadata(metadata, scene, staff_combo, subject_id, save_path, repeat_idx, ...
+                    selected_location, selected_subLocation, sample_id);
                 
                 % --- 自动移动音频文件 (.wav) ---
                 try
@@ -347,7 +438,7 @@ for scene_idx = 1:total_scenes
                         if ~isempty(found_wavs)
                             for fw = 1:length(found_wavs)
                                 src_f = fullfile(found_wavs(fw).folder, found_wavs(fw).name);
-                                dest_f = fullfile(save_path, found_wavs(fw).name);
+                                dest_f = fullfile(audio_dir, found_wavs(fw).name);  % 保存到audio子目录
                                 movefile(src_f, dest_f);
                                 fprintf('  [文件] 已归档音频: %s\n', found_wavs(fw).name);
                             end
@@ -368,20 +459,26 @@ for scene_idx = 1:total_scenes
                 end
                 % ------------------------------------
 
-                % 记录成功到日志
+                % 记录成功到日志（包含三层场景信息）
                 log_fid = fopen(log_filepath, 'a', 'n', 'UTF-8');
-                fprintf(log_fid, '%s,%d,%s,%d,true,%.2f,%.2f,\n', ...
-                    datestr(now, 'yyyy-mm-dd HH:MM:SS'), scene.idx, scene.code, repeat_idx, ...
+                fprintf(log_fid, '%s,%s,%s,%s,%s,%d,%s,%d,true,%.2f,%.2f,\n', ...
+                    datestr(now, 'yyyy-mm-dd HH:MM:SS'), ...
+                    selected_location.location_id, selected_location.location_name, ...
+                    selected_subLocation.sub_location_id, selected_subLocation.sub_location_name, ...
+                    scene.idx, scene.code, repeat_idx, ...
                     metadata.sntp_offset_ms, metadata.rtt_ms);
                 fclose(log_fid);
             else
                 failed_captures = failed_captures + 1;
                 fprintf('\n>>> 采集失败：%s <<<\n', metadata.success_status);
                 
-                % 记录失败到日志
+                % 记录失败到日志（包含三层场景信息）
                 log_fid = fopen(log_filepath, 'a', 'n', 'UTF-8');
-                fprintf(log_fid, '%s,%d,%s,%d,false,%.2f,%.2f,%s\n', ...
-                    datestr(now, 'yyyy-mm-dd HH:MM:SS'), scene.idx, scene.code, repeat_idx, ...
+                fprintf(log_fid, '%s,%s,%s,%s,%s,%d,%s,%d,false,%.2f,%.2f,%s\n', ...
+                    datestr(now, 'yyyy-mm-dd HH:MM:SS'), ...
+                    selected_location.location_id, selected_location.location_name, ...
+                    selected_subLocation.sub_location_id, selected_subLocation.sub_location_name, ...
+                    scene.idx, scene.code, repeat_idx, ...
                     metadata.sntp_offset_ms, metadata.rtt_ms, metadata.success_status);
                 fclose(log_fid);
             end
@@ -390,10 +487,13 @@ for scene_idx = 1:total_scenes
             failed_captures = failed_captures + 1;
             fprintf('\n>>> 采集异常：%s <<<\n', ME.message);
             
-            % 记录异常到日志
+            % 记录异常到日志（包含三层场景信息）
             log_fid = fopen(log_filepath, 'a', 'n', 'UTF-8');
-            fprintf(log_fid, '%s,%d,%s,%d,false,0,0,%s\n', ...
-                datestr(now, 'yyyy-mm-dd HH:MM:SS'), scene.idx, scene.code, repeat_idx, ...
+            fprintf(log_fid, '%s,%s,%s,%s,%s,%d,%s,%d,false,0,0,%s\n', ...
+                datestr(now, 'yyyy-mm-dd HH:MM:SS'), ...
+                selected_location.location_id, selected_location.location_name, ...
+                selected_subLocation.sub_location_id, selected_subLocation.sub_location_name, ...
+                scene.idx, scene.code, repeat_idx, ...
                 strrep(ME.message, ',', ';'));  % 替换逗号避免CSV格式错误
             fclose(log_fid);
         end

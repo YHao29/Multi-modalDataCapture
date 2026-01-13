@@ -1,4 +1,4 @@
-function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, duration, radarDelay, phoneDelay, savePath)
+function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, duration, radarDelay, phoneDelay, radarDir, audioDir)
 % syncCapture - 多模态同步采集协调函数
 %
 % 输入:
@@ -8,7 +8,8 @@ function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, durat
 %   duration: 采集时长（秒）
 %   radarDelay: 雷达启动延迟（毫秒）
 %   phoneDelay: 手机音频启动延迟（毫秒）
-%   savePath: 数据保存路径
+%   radarDir: 雷达数据保存目录
+%   audioDir: 音频数据保存目录（用于记录元数据）
 %
 % 输出:
 %   success: 采集是否成功
@@ -18,12 +19,12 @@ function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, durat
 %       - rtt_ms: 往返时延（毫秒）
 %       - radar_delay_ms: 雷达启动延迟（毫秒）
 %       - phone_delay_ms: 手机启动延迟（毫秒）
-%       - radar_file: 雷达数据文件名
+%       - radar_file: 雷达数据文件名（相对于radarDir）
 %       - audio_files: 音频数据文件名（cell数组）
 %       - success_status: 成功状态字符串
 %
 % 示例:
-%   [success, meta] = syncCapture(audioClient, ar1, 'yh-ssk-A1-B1-C1-D1-E1-01', 10, 1000, 'D:\data\');
+%   [success, meta] = syncCapture(audioClient, [], 'sample_001_L01_SL01_A1-B1-C1-D1-E1', 10, 1000, 2200, radarDir, audioDir);
 
     % 初始化返回值
     success = false;
@@ -70,7 +71,7 @@ function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, durat
         %% 3. 先配置雷达（不启动，仅Setup）
         fprintf('  [雷达] 配置雷达...\n');
         radar_filename = [sceneId '.bin'];
-        radar_filepath = fullfile(savePath, radar_filename);
+        radar_filepath = fullfile(radarDir, radar_filename);
         metadata.radar_file = radar_filename;
         
         lua_filepath = strrep(radar_filepath, '\', '\\');

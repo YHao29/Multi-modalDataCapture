@@ -1,27 +1,35 @@
-function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repeatIndex)
-% saveMetadata - 保存多模态采集元数据到JSON文件
+function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repeatIndex, locationInfo, subLocationInfo, sampleId)
+% saveMetadata - 保存多模态采集元数据到JSON文件（支持三层场景体系）
 %
 % 输入:
 %   metadata: syncCapture 返回的元数据结构体
-%   sceneInfo: 场景信息结构体，包含字段：
+%   sceneInfo: 动作组合场景信息结构体，包含字段：
 %       - idx: 场景索引
 %       - intro: 场景描述
 %       - code: 场景代码
 %   staffCombo: 人员组合字符串（例如 'yh-ssk'）
 %   subjectId: 数字ID（例如 1）
-%   savePath: 保存路径
+%   savePath: 保存路径（被试目录）
 %   repeatIndex: 重复次数索引（1, 2, 3...）
+%   locationInfo: 大场景信息结构体，包含字段：
+%       - location_id: 大场景ID
+%       - location_name: 大场景名称
+%       - description: 大场景描述
+%   subLocationInfo: 子场景信息结构体，包含字段：
+%       - sub_location_id: 子场景ID
+%       - sub_location_name: 子场景名称
+%   sampleId: 样本ID（全局编号）
 %
 % 输出:
 %   无（直接保存JSON文件）
 %
 % 示例:
-%   sceneInfo = struct('idx', 5, 'intro', '上方有人在动慢走速度1.0m/s-0-静止站立', 'code', 'A1-B1-C1-D1-E1');
-%   saveMetadata(metadata, sceneInfo, 'yh-ssk', 1, 'D:\data\', 1);
+%   saveMetadata(metadata, scene, 'yh-ssk', 1, 'D:\\data\\subjects\\subject_001\\', 1, locationInfo, subLocationInfo, 1);
 
     try
-        % 构建文件名（使用数字ID作为前缀）
-        metaFilename = sprintf('%d-%s-%02d_meta.json', subjectId, sceneInfo.code, repeatIndex);
+        % 构建文件名（使用新的命名格式）
+        metaFilename = sprintf('sample_%03d_%s_%s_%s_meta.json', sampleId, ...
+            locationInfo.location_id, subLocationInfo.sub_location_id, sceneInfo.code);
         metaFilepath = fullfile(savePath, metaFilename);
         
         % 构建完整的元数据结构
@@ -31,14 +39,25 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
         fullMetadata.staff_combination = staffCombo;
         fullMetadata.subject_id = subjectId;
         
-        % 场景信息
-        fullMetadata.scene_info = struct();
-        fullMetadata.scene_info.idx = sceneInfo.idx;
-        fullMetadata.scene_info.intro = sceneInfo.intro;
-        fullMetadata.scene_info.code = sceneInfo.code;
+        % 三层场景信息
+        fullMetadata.location = struct();
+        fullMetadata.location.location_id = locationInfo.location_id;
+        fullMetadata.location.location_name = locationInfo.location_name;
+        fullMetadata.location.description = locationInfo.description;
+        
+        fullMetadata.sub_location = struct();
+        fullMetadata.sub_location.sub_location_id = subLocationInfo.sub_location_id;
+        fullMetadata.sub_location.sub_location_name = subLocationInfo.sub_location_name;
+        fullMetadata.sub_location.description = subLocationInfo.description;
+        
+        fullMetadata.action_scene = struct();
+        fullMetadata.action_scene.idx = sceneInfo.idx;
+        fullMetadata.action_scene.intro = sceneInfo.intro;
+        fullMetadata.action_scene.code = sceneInfo.code;
         
         % 采集配置
         fullMetadata.capture_config = struct();
+        fullMetadata.capture_config.sample_id = sampleId;
         fullMetadata.capture_config.repeat_index = repeatIndex;
         fullMetadata.capture_config.radar_delay_ms = metadata.radar_delay_ms;
         fullMetadata.capture_config.phone_delay_ms = metadata.phone_delay_ms;
@@ -66,10 +85,11 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
             'ConvertFrom', 'posixtime', 'TimeZone', 'UTC');
         fullMetadata.sync_quality.trigger_time_readable = char(trigger_datetime);
         
-        % 文件映射
+        % 文件映射（使用相对路径）
         fullMetadata.file_mapping = struct();
-        fullMetadata.file_mapping.radar_file = metadata.radar_file;
-        fullMetadata.file_mapping.audio_files = metadata.audio_files;
+        fullMetadata.file_mapping.radar_file = fullfile('radar', metadata.radar_file);
+        fullMetadata.file_mapping.audio_files = cellfun(@(x) fullfile('audio', x), ...
+            metadata.audio_files, 'UniformOutput', false);
         
         % 采集状态
         fullMetadata.capture_status = struct();
