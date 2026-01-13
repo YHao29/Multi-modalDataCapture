@@ -32,7 +32,7 @@ server_ip = '127.0.0.1';      % AudioCenterServer 的 IP 地址
 server_port = 8080;           % REST API 端口
 
 % 场景文件路径
-scenes_csv_file = '../mmwave_radar/scenes_file.csv';
+scenes_csv_file = 'radar/scenes_file.csv';
 
 % 雷达配置
 RSTD_DLL_Path = 'C:\ti\mmwave_studio_02_01_01_00\mmWaveStudio\Clients\RtttNetClientController\RtttNetClientAPI.dll';

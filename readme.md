@@ -1,646 +1,455 @@
 # 多模态数据采集系统
 
-基于毫米波雷达和超声波的多模态数据采集系统，支持连续批量采集操作。
+基于毫米波雷达和超声波的多模态数据采集系统，支持精确时间同步的连续批量采集操作。
 
 ## 项目概述
 
-本项目旨在构建一个高效的多模态数据采集系统，整合毫米波雷达和超声波两种传感模态，为数据采集操作员提供简单易用的指令接口，实现连续自动化的多段数据采集。
+本项目实现了一个高效的多模态数据采集系统，整合毫米波雷达和超声波两种传感模态，提供简单易用的自动化采集接口，支持40种预设场景的批量数据采集。
 
-## 系统特性
+## 核心特性
 
-- **多模态支持**：同时支持毫米波雷达和超声波数据采集
-- **批量采集**：通过简单指令连续采集多段数据
-- **操作简便**：为操作员设计的友好命令行界面
-- **数据同步**：确保多模态数据的时间同步
-- **自动化流程**：减少人工干预，提高采集效率
+- **多模态同步**：毫米波雷达 + 超声波数据精确时间同步采集
+- **批量自动化**：通过场景配置文件实现连续自动采集
+- **精确触发**：SNTP时间同步 + 雷达延迟补偿，确保毫秒级同步
+- **完整元数据**：自动生成JSON元数据和CSV采集日志
+- **操作简便**：MATLAB命令行界面，友好的进度提示
 
-## 技术栈
+## 技术架构
 
-- **Java**：AudioCenterServer 服务端，采用 Spring Boot + Netty 框架构建 Client-Server 架构
-- **Android**：手机端超声波数据采集客户端应用
-- **MATLAB**：毫米波雷达数据采集控制，场景管理和数据处理
-- **NTP协议**：用于多模态数据的时间同步
+- **服务端**：Spring Boot + Netty（AudioCenterServer）
+  - REST API（8080端口）：MATLAB客户端接口
+  - Netty服务器（6666端口）：Android设备连接
+  - SNTP服务器（1123端口）：时间同步
+- **Android端**：超声波数据采集App（44.1kHz采样率，20kHz超声波）
+- **MATLAB端**：雷达控制、场景管理、同步采集协调
+- **时间同步**：SNTP协议，毫秒级精度
 
 ## 系统架构
 
-系统采用分布式采集架构，由三个核心组件构成：
-
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    PC 控制中心 (MATLAB)                  │
-│  - 场景管理 (scenes_file.csv)                           │
-│  - 毫米波雷达控制 (data_collection_new.m)                │
-│  - AudioCenterServer 客户端调用                          │
-│  - 数据同步协调                                          │
-└───────────────┬─────────────────────┬───────────────────┘
-                │                     │
-                │                     │
-         ┌──────▼──────┐       ┌─────▼──────┐
-         │  TI 毫米波   │       │   手机端    │
-         │  雷达设备    │       │  Android App│
-         │             │       │  (超声波)   │
-         └─────────────┘       └────────────┘
+│              PC 控制中心 (MATLAB)                        │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │ main_multimodal_data_capture.m                  │   │
+│  │  - 场景管理 (scenes_file.csv)                   │   │
+│  │  - AudioClient (HTTP REST API)                  │   │
+│  │  - SNTP时间同步 (syncTimeNTP.m)                 │   │
+│  │  - 雷达控制 (Init_RSTD_Connection.m)            │   │
+│  │  - 同步触发协调 (syncCapture.m)                 │   │
+│  └──────────────────────────────────────────────────┘   │
+└────────────┬────────────────────────┬───────────────────┘
+             │                        │
+       REST API (8080)           USB/Ethernet
+             │                        │
+    ┌────────▼────────┐       ┌───────▼────────┐
+    │ AudioCenterServer│       │  TI mmWave     │
+    │  Spring Boot    │       │  雷达开发板     │
+    │  + Netty        │       └────────────────┘
+    │  + SNTP Server  │
+    └────────┬────────┘
+             │
+        TCP (6666)
+             │
+    ┌────────▼────────┐
+    │  Android 手机    │
+    │  超声波采集App   │
+    └─────────────────┘
 ```
 
-### 工作流程
+### 核心工作流程
 
-1. **初始化阶段**：MATLAB 程序读取场景配置文件，建立与雷达和 AudioCenterServer 的连接
-2. **同步阶段**：通过 NTP 协议同步 PC 和手机端的系统时间
-3. **采集阶段**：按场景顺序，同时触发雷达和手机端采集，确保时间戳对齐
-4. **存储阶段**：数据按统一命名规则存储，便于后续多模态数据融合分析
-
-## 硬件要求
-
-### 必需设备
-
-- **毫米波雷达**：TI mmWave 雷达开发板
-- **Android 手机**：支持超声波采集的 Android 设备（需安装配套 App）
-- **PC 主机**：运行 Windows 系统，用于控制和数据存储
-  - 推荐配置：8GB+ 内存，100GB+ 可用存储空间
-  - 需要良好的网络连接（用于与手机通信）
-
-### 连接要求
-
-- PC 与毫米波雷达通过 USB/Ethernet 连接
-- PC 与 Android 手机需在同一局域网内（Wi-Fi 或 USB 网络共享）
-
-## 软件依赖
-
-### PC 端
-
-- **MATLAB**：R2019b 或更高版本
-  - 需要 Instrument Control Toolbox
-- **TI mmWave Studio**：版本 02.01.01.00 或更高
-- **Java Runtime Environment**：JDK 17 或更高版本
-- **AudioCenterServer**：本项目提供的服务端程序
-
-### Android 端
-
-- Android 操作系统：5.0 (Lollipop) 或更高版本
-- 配套的超声波采集 App（需单独安装）
-
-### 可选工具
-
-- NTP 服务器（用于高精度时间同步）
-
-## 安装与配置
-
-### 环境准备
-
-#### 1. MATLAB 环境
-
-```matlab
-% 验证 MATLAB 安装
-ver
-
-% 检查必需的工具箱
-license('test', 'Instrument_Control_Toolbox')
-```
-
-#### 2. TI mmWave Studio
-
-1. 从 TI 官网下载并安装 mmWave Studio
-2. 确认安装路径为：`C:\ti\mmwave_studio_02_01_01_00\`
-3. 验证 RtttNetClientAPI.dll 存在
-
-#### 3. AudioCenterServer
-
-```bash
-# 进入服务器目录
-cd AudioCenterServer
-
-# 构建项目
-gradlew.bat clean build
-
-# 启动服务器（默认监听 6666 端口）
-gradlew.bat bootRun
-```
-
-#### 4. Android 客户端
-
-1. 在手机上安装超声波采集 App
-2. 配置服务器连接：输入 PC 的 IP 地址和端口 6666
-3. 测试连接是否正常
-
-### 设备连接
-
-#### 毫米波雷达连接
-
-1. 通过 USB 线将雷达开发板连接到 PC
-2. 确保 DCA1000 电源已接通
-3. 在 mmWave Studio 中验证连接状态
-
-#### Android 手机连接
-
-1. 确保手机和 PC 在同一局域网
-2. 在 PC 上运行 `ipconfig` 查看 IP 地址
-3. 在 App 中输入 PC IP 和端口（默认 6666）
-4. 点击连接并验证状态
-
-## 使用说明
-
-### 快速开始
-
-#### 第一步：启动服务
-
-```bash
-# 1. 启动 AudioCenterServer（会自动启动 Netty 和 SNTP 服务）
-cd AudioCenterServer
-gradlew.bat bootRun
-
-# 2. 等待服务器启动完成，看到以下提示：
-#    - Netty server started on port 6666
-#    - SNTP server started on port 1123
-#    - Started Main
-```
-
-#### 第二步：连接设备
-
-1. **连接雷达**：通过 USB 连接 TI mmWave 雷达到 PC，确保 mmWave Studio 已启动
-2. **连接手机**：在手机 App 中输入 PC 的 IP 地址和端口 6666，点击连接
-
-#### 第三步：校准雷达启动延迟 ⚠️ **必须执行**
-
-```matlab
-% 在 MATLAB 中运行延迟测量脚本
-cd matlab_client
-test_radar_startup_delay
-
-% 脚本会自动测量雷达启动延迟（约10次测试）
-% 记录输出的【推荐配置值】，例如：
-% RADAR_STARTUP_DELAY = 1050;  % 毫秒
-```
-
-#### 第四步：配置采集参数
-
-编辑 `matlab_client/main_multimodal_data_capture.m` 文件的**用户配置区**：
-批量采集流程
-
-1. **初始化阶段**
-   - 程序验证配置参数（数据路径、场景文件、雷达DLL）
-   - 输入人员组合（例如 `yh-wt`）
-   - 连接 AudioCenterServer 并检查设备
-   - 执行初始时间同步
-   - 初始化雷达连接
-   - 创建采集日志文件
-
-2. **场景循环采集**
-   - 程序依次遍历 `scenes_file.csv` 中的所有场景
-   - 每个场景重复 `repeat_count` 次
-   - 每次采集前显示场景信息和当前进度
-   - 操作员输入 `y` 确认开始（输入 `s` 跳过）
-
-3. **精确同步触发**
-   - 执行 SNTP 时间同步，获取当前偏移量和 RTT
-   - 计算理论触发时间点（考虑雷达启动延迟）
-   - **先**发送雷达启动命令（提前 RADAR_STARTUP_DELAY 毫秒）
-   - 等待到音频触发时间点，发送音频采集 API
+1. **初始化**：加载场景配置，连接AudioCenterServer和雷达设备
+2. **时间同步**：SNTP协议同步PC和Android设备时间（< 10ms偏移）
+3. **精确触发**：
+   - 计算理论触发时间点
+   - 提前1050ms发送雷达启动命令（补偿雷达启动延迟）
+   - 提前2200ms发送音频采集命令（补偿手机启动延迟）
    - 雷达和音频在理论时间点同步开始采集
+4. **数据存储**：自动保存.bin雷达数据、.wav音频数据、.json元数据、.csv日志
 
-4. **数据保存与验证**
-   - 采集完成后自动停止雷达和音频
-   - 验证雷达文件是否存在且大小正常（> 1MB）
-   - 保存元数据 JSON 文件，包含：
-     - 人员组合、场景信息
-     - 同步质量（SNTP 偏移、RTT、触发时间戳）
-     - 音频参数（44.1kHz 采样率、20kHz 超声波）
-     - 文件映射关系
-   - 记录采集结果到 CSV 日志
+## 快速开始
 
-5. **完成统计**
-   - 显示总采集次数、成功次数、失败次数、成功率
-   - 生成完整的采集日志文件
+### 前置要求
 
-#### 第五步：手动创建数据目录
-关键参数说明
+- **硬件**：PC (Windows 10/11) + TI mmWave雷达 + Android手机
+- **软件**：Java 17+, MATLAB R2019b+, TI mmWave Studio
 
-#### 主控程序配置 (main_multimodal_data_capture.m)
+### 三步开始采集
 
-```matlab
-data_root_path = 'D:\multimodal_data\';  % 数据存储根目录（需预先创建）
-capture_duration = 10;                   % 每次采集时长（秒）
-repeat_count = 3;                        % 每场景重复次数
-RADAR_STARTUP_DELAY = 1000;              % 雷达启动延迟（毫秒，需实测）
-server_ip = '127.0.0.1';                 % AudioCenterServer IP
-server_port = 8080;                      % REST API 端口
+#### 1. 编译并启动服务器
+
+```powershell
+cd AudioCenterServer
+.\gradlew.bat clean build
+.\gradlew.bat bootRun
 ```
 
-#### 时间同步参数
-
-- **预触发缓冲时间**：100ms（在 syncCapture.m 中定义）
-- **SNTP 服务器端口**：1123（UDP）
-- **时间同步精度**：毫秒级（取决于网络 RTT）
-
-#### AudioClient API (MATLAB)
-
-```matlab
-% 创建客户端
-audioClient = AudioClient(server_ip, server_port);
-
-% 列出已连接设备
-devices = audioClient.listDevices();
-
-% 时间同步
-[offset_ms, rtt_ms] = audioClient.syncTime();
-
-% 开始录制（sceneId, duration, timestamp）
-success = audioClient.startRecording('yh-ssk-A1-B1-C1-D1-E1-01', 10, 1736121234567);
-
-% 停止录制
-audioClient.stopRecording();
-
-% 获取录制状态
-status = audioClient.getRecordingStatus();
+等待看到：
+```
+Netty server started successfully!
+REST API available at http://localhost:8080/api
+Started Main in X.XXX seconds
 ```
 
-#### REST API 端点 (HTTP)
+#### 2. 连接设备
 
-- `POST /api/recording/start` - 开始录制
-  ```json
-  {
-    "sceneId": "yh-ssk-A1-B1-C1-D1-E1-01",
-    "duration": 10,
-    "timestamp": 1736121234567
-  }
-  ```
-- `POST /api/recording/stop` - 停止录制
-- `GET /api/recording/status` - 获取状态
-- `GET /api/devices/list` - 列出设备
-- `POST /api/time/sync` - 时间同步
-### 采集流程
+- **手机**：打开App，输入 `PC_IP`和`端口:6666`，点击连接，显示XXX established
+- **雷达**：USB连接，mmWave Studio中运行 `Run`（按照之前的毫米波雷达连接教程完成配置文件和雷达连接操作）
 
-1. **输入被试信息**：程序提示输入被试名称缩写，系统自动分配唯一编号
-2. **场景循环**：程序依次读取 scenes_file.csv 中的场景
-3. **确认采集**：每次采集前需要操作员确认（输入 'y'）
-4. **同步触发**：MATLAB 同时触发雷达和手机端开始采集
-5. **数据存储**：采集完成后自动保存，文件名格式：`{被试编号}-{场景代码}-{重复次数}.bin`
-
-### 命令参考
-
-#### MATLAB 端关键参数
-
-在 `data_collection_new.m` 中可调整：
+#### 3. 运行采集
 
 ```matlab
-data_path = 'D:\\mmwave_data\\';  % 数据存储根目录
-dir_name = 'office\\';             % 场景子目录
-start_scene = 1;                  % 起始场景编号
-repeat_time = 3;                  % 每场景重复次数
+% MATLAB中运行
+% 开始采集
+main_multimodal_data_capture
 ```
 
-#### AudioCenterServer 指令
+### 完整设置指南
 
-服务器支持通过 Spring Shell 命令控制手机端：
+详细的安装、配置和测试步骤，请查看：
+- **[SETUP_AND_TEST.md](SETUP_AND_TEST.md)** - 完整的安装配置和测试指南
+## 数据格式
 
-- `start-recording`：开始录制超声波数据
-- `stop-recording`：停止录制
-- `list-devices`：查看已连接的设备
-- `sync-time`：同步手机时间
+### 推荐：层次化数据组织（适用于深度学习）
 
-### 数据格式
+**新项目推荐使用层次化结构**，便于数据加载和管理：
 
-#### 毫米波雷达数据
+```
+dataset_root/
+├── dataset_info.json          # 数据集元信息
+├── scenes_info.json           # 场景映射表（40个场景）
+├── train.txt                  # 训练集分割
+├── val.txt                    # 验证集分割
+├── test.txt                   # 测试集分割
+└── subjects/                  # 按被试组织
+    ├── subject_001/
+    │   ├── samples_metadata.json    # 被试所有样本的元数据
+    │   ├── radar/
+    │   │   ├── sample_001_front_static_left_static_idle.bin
+    │   │   ├── sample_002_front_static_left_moving_idle.bin
+    │   │   └── ...
+    │   └── audio/
+    │       ├── sample_001_front_static_left_static_idle.wav
+    │       ├── sample_002_front_static_left_moving_idle.wav
+    │       └── ...
+    ├── subject_002/
+    │   └── ...
+    └── ...
+```
 
-- **格式**：`.bin` 二进制文件
-- **命名**：`{人员组合}-{场景代码}-{重复序号:02d}.bin`
-- **示例**：`yh-ssk-A1-B1-C1-D1-E1-01.bin`
-- **位置**：`{data_root_path}\{人员组合}\`
-- **解析**：使用 `readDCA1000.m` 函数读取
-
-#### 超声波数据
-
-- **格式**：`.wav` 音频文件
-- **命名**：与雷达数据保持一致
-- **示例**：`yh-ssk-A1-B1-C1-D1-E1-01.wav`
-- **采样率**：44.1 kHz
-- **超声波频率**：20 kHz（Android 端固定）
-- **模式**：ultrasonic（超声波模式）
-- **位置**：服务器端保存（需配置）
-
-#### 元数据文件 (JSON)
-
-每次采集会生成对应的元数据文件：
+#### 数据集元信息（dataset_info.json）
 
 ```json
 {
-  "staff_combination": "yh-ssk",
-  "scene_info": {
-    "idx": 5,
-    "intro": "上方有人在动慢走速度1.0m/s-0°-静止站立",
-    "code": "A1-B1-C1-D1-E1"
+  "dataset_name": "Multimodal_Human_Activity_Detection",
+  "version": "1.0.0",
+  "created_date": "2024-01-15",
+  "modalities": ["mmwave_radar", "ultrasonic_audio"],
+  "statistics": {
+    "num_subjects": 10,
+    "num_scenes": 40,
+    "total_samples": 600,
+    "samples_per_subject": 60
   },
-  "capture_config": {
-    "repeat_index": 1,
-    "radar_delay_ms": 1050
-  },
-  "audio_params": {
-    "sample_rate": 44100,
-    "ultrasonic_freq": 20000,
-    "format": "wav",
-    "mode": "ultrasonic"
-  },
-  "radar_params": {
-    "format": "bin",
-    "data_type": "mmwave_adc"
-  },
-  "sync_quality": {
-    "sntp_offset_ms": 2.5,
-    "rtt_ms": 3.2,
-    "trigger_timestamp_utc": 1736121234567,
-    "trigger_time_readable": "2026-01-06 08:13:54"
-  },
-  "file_mapping": {
-    "radar_file": "yh-ssk-A1-B1-C1-D1-E1-01.bin",
-    "audio_files": ["yh-ssk-A1-B1-C1-D1-E1-01.wav"]
-  },
-  "capture_status": {
-    "success": true,
-    "status_message": "success",
-    "timestamp": "2026-01-06 08:14:04"
+  "hardware_config": {
+    "radar": {
+      "model": "TI mmWave AWR1843",
+      "num_rx_antennas": 4,
+      "chirp_samples": 256,
+      "sample_rate_hz": 4000000
+    },
+    "audio": {
+      "sample_rate_hz": 44100,
+      "ultrasonic_freq_hz": 20000
+    }
   }
 }
 ```
 
-**命名**：`{人员组合}-{场景代码}-{重复序号:02d}_meta.json`
+#### 被试元数据（samples_metadata.json）
 
-#### 采集日志 (CSV)
-
-每次运行主控程序会生成一个日志文件：
-
-```csv
-timestamp,scene_idx,scene_code,repeat_index,success,sntp_offset,rtt,error_message
-2026-01-06 08:13:54,5,A1-B1-C1-D1-E1,1,true,2.5,3.2,
-2026-01-06 08:14:20,5,A1-B1-C1-D1-E1,2,true,2.3,3.1,
-2026-01-06 08:14:45,5,A1-B1-C1-D1-E1,3,false,2.6,3.3,radar_file_missing
-...
+```json
+{
+  "subject_id": 1,
+  "num_samples": 60,
+  "samples": [
+    {
+      "sample_id": 1,
+      "scene": {
+        "code": "A1-B1-C1-D1-E1",
+        "intro": "合法用户静坐，窥视者1.0米-0°-静止站立",
+        "idx": 5
+      },
+      "radar_file": "radar/sample_001_A1_B1_C1_D1_E1.bin",
+      "audio_file": "audio/sample_001_A1_B1_C1_D1_E1.wav",
+      "sync_quality": {
+        "ntp_offset_ms": 2.5,
+        "audio_start_time": "2024-01-15 10:30:00.123",
+        "radar_start_time": "2024-01-15 10:30:00.138"
+      },
+      "capture_time": "2024-01-15 10:30:00"
+    }
+  ]
+}
 ```
 
-**命名**：`capture_log_{yyyymmdd_HHMMSS}.csv`
+### 工具函数
 
-## 示例
-
-### 完整采集流程示例
+#### MATLAB工具（matlab_client/utils/）
 
 ```matlab
-% 1. 启动 MATLAB，进入项目目录
-cd E:\ScreenDataCapture\Multimodal_data_capture\matlab_client
+% 1. 生成数据集元信息
+createDatasetInfo('E:\data\', 'E:\data\dataset_info.json');
 
-% 2. 首次使用需要校准雷达启动延迟
-test_radar_startup_delay
-% 输出示例：
-% 【推荐配置值】
-% RADAR_STARTUP_DELAY = 1050;  % 毫秒
+% 2. 从CSV获取场景信息（直接读取，不硬编码）
+sceneInfo = getSceneInfo('A1-B1-C1-D1-E1');
+% 返回: sceneInfo.intro = '合法用户静坐，窥视者1.0米-0°-静止站立'
 
-% 3. 编辑 main_multimodal_data_capture.m，填入推荐值
-% RADAR_STARTUP_DELAY = 1050;
+% 3. 转换旧数据到新格式
+reorganizeData('E:\old_data\', 'E:\new_data\');
 
-% 4. 运行主控程序
-main_multimodal_data_capture
-
-% 5. 按提示操作
-% ========================================
-%   多模态数据采集系统 v1.0
-% ========================================
-%
-% ========== 参数验证 ==========
-% ✓ 数据根目录: D:\multimodal_data\
-% ✓ 场景文件: ../mmwave_radar/scenes_file.csv
-% ✓ 雷达DLL: 已找到
-%
-% ========== 用户信息 ==========
-% 请输入人员组合（例如 yh-ssk）: yh-ssk
-% ✓ 人员组合: yh-ssk
-% ✓ 保存路径: D:\multimodal_data\yh-ssk
-%
-% ========== 加载场景配置 ==========
-% ✓ 已加载 40 个场景
-%
-% ========================================
-%   开始批量采集
-%   总场景数: 40
-%   每场景重复: 3 次
-%   预计总采集次数: 120
-% ========================================
-%
-% ========================================
-% 场景 1/40
-% ========================================
-% 描述: 静止不动
-% 代码: A0-B0-C0-D0-E0
-% ========================================
-%
-% ---------- 第 1/3 次采集 ----------
-% 输入 y 开始采集，输入 s 跳过: y
-%
-% 场景ID: yh-ssk-A0-B0-C0-D0-E0-01
-%
-% 开始同步采集...
-%   [同步] 执行时间同步...
-%   [同步] 时间偏移: 2.50 ms, RTT: 3.20 ms
-%   [时序] 当前时间: 1736121234567 ms (UTC)
-%   [时序] 触发时间: 1736121235717 ms (UTC)
-%   [雷达] 发送雷达启动命令...
-%   [雷达] 启动命令已发送 (T=1736121234567 ms)
-%   [音频] 发送音频采集命令...
-%   [音频] 启动命令已发送 (T=1736121235617 ms)
-%   [采集] 正在同步采集数据 (10秒)...
-%   [停止] 停止采集...
-%   [验证] 检查数据文件...
-%   [验证] 雷达文件: yh-ssk-A0-B0-C0-D0-E0-01.bin (5.23 MB)
-%   [验证] 音频文件将由服务器保存
-%   [完成] 同步采集成功！
-%
-% ✓✓✓ 采集成功！✓✓✓
-%   [元数据] 已保存: yh-ssk-A0-B0-C0-D0-E0-01_meta.json
-%
-% 当前统计: 成功 1 / 失败 0 / 总计 1
-% ...
+% 4. 使用新的元数据保存函数（推荐）
+syncInfo = struct('ntp_offset_ms', 2.5, ...
+                  'audio_start_time', '2024-01-15 10:30:00.123', ...
+                  'radar_start_time', '2024-01-15 10:30:00.138');
+saveMetadataV2(1, 5, 'A1-B1-C1-D1-E1', syncInfo, '2024-01-15 10:30:00', 'E:\data\');
 ```
 
-### 数据读取示例
+#### Python DataLoader（tools/multimodal_dataloader.py）
 
+```python
+from torch.utils.data import DataLoader
+from multimodal_dataloader import MultimodalDataset
+
+# 创建训练集
+train_dataset = MultimodalDataset(
+    root_dir='E:/data/subjects',
+    split='train',
+    split_file='E:/data/train.txt'
+)
+
+# 创建DataLoader
+train_loader = DataLoader(
+    train_dataset,
+    batch_size=32,
+    shuffle=True,
+    num_workers=4
+)
+
+# 训练循环
+for batch in train_loader:
+    radar = batch['radar']      # shape: (B, 256, 128, 4)
+    audio = batch['audio']      # shape: (B, audio_samples)
+    labels = batch['label']     # shape: (B,)
+    # ... 模型训练
+```
+
+#### 数据集分割（tools/split_dataset.py）
+
+```bash
+# 按被试分割（推荐）
+python split_dataset.py --root E:/data/subjects --strategy subject --ratios 0.7 0.15 0.15
+
+# 按样本随机分割
+python split_dataset.py --root E:/data/subjects --strategy sample --ratios 0.7 0.15 0.15
+```
+
+#### 数据验证（tools/verify_dataset.py）
+
+```bash
+# 验证数据完整性
+python verify_dataset.py --root E:/data/subjects --output verification_report.txt
+```
+
+### 传统：平铺文件结构（向后兼容）
+
+旧的采集方式仍然支持，数据文件采用统一命名格式：`{人员组合}-{场景代码}-{重复序号:02d}`
+
+示例：`yh-ssk-A1-B1-C1-D1-E1-01`
+
+### 数据文件类型
+
+#### 1. 雷达数据（.bin）
+- **格式**：二进制文件（int16）
+- **读取**：使用 `readDCA1000.m` 函数
 ```matlab
-% 读取毫米波雷达数据
-filename = 'D:\multimodal_data\yh-ssk\yh-ssk-A1-B1-C1-D1-E1-01.bin';
-[adcData, ~] = readDCA1000(filename);
-
-% 数据维度：[samples, chirps, rx_antennas]
-size(adcData)
-
-% 读取元数据
-meta_file = 'D:\multimodal_data\yh-ssk\yh-ssk-A1-B1-C1-D1-E1-01_meta.json';
-fid = fopen(meta_file, 'r', 'n', 'UTF-8');
-meta_json = fread(fid, '*char')';
-fclose(fid);
-metadata = jsondecode(meta_json);
-
-% 查看同步质量
-fprintf('SNTP 偏移: %.2f ms\n', metadata.sync_quality.sntp_offset_ms);
-fprintf('触发时间: %s\n', metadata.sync_quality.trigger_time_readable);
+[adcData, fileSize] = readDCA1000('path/to/file.bin');
+% adcData: [采样点数=256, chirp数=128, 天线数=4]
 ```
+
+#### 2. 超声波数据（.wav）
+- **格式**：WAV音频文件
+- **采样率**：44.1 kHz
+- **超声波频率**：20 kHz
+- **位置**：由AudioCenterServer管理
+
+### 场景编码说明
+
+场景代码格式：`{目标方向}{目标速度}-{干扰者方向}{干扰者速度}-{干扰者动作}`
+
+- **方向**：A(上方) B(下方) C(左侧) D(右侧) E(正前方)
+- **速度**：0(静止) 1(运动)
+- **动作**：0(空闲) 1(刷牙) 2(洗脸) 3(挥手) 4(无人)
+
+示例：
+- `E0-A0-B0-C0`：目标在正前方静止，上方有人静止空闲
+- `E0-C1-B2-D3`：目标在正前方静止，左侧有人运动洗脸
+
+共40个场景，详见 `scenes_info.json`
 
 ## 项目结构
 
 ```
 Multimodal_data_capture/
+├── README.md                          # 项目总览（本文件）
+├── SETUP_AND_TEST.md                  # 完整安装配置和测试指南
+├── GITHUB_GUIDE.md                    # Git版本控制指南
 │
-├── README.md                          # 项目总体说明
-├── TEST_GUIDE.md                      # 测试指南
-├── QUICK_TEST.md                      # 快速测试说明
+├── AudioCenterServer/                 # Java服务端
+│   ├── src/main/java/com/lannooo/
+│   │   ├── Main.java                  # 主程序（自动启动Netty+SNTP）
+│   │   ├── server/api/                # REST API控制器
+│   │   │   ├── RecordingController.java    # 录制控制
+│   │   │   ├── DeviceController.java       # 设备管理
+│   │   │   └── TimeController.java         # 时间同步
+│   │   ├── service/
+│   │   │   ├── NettyService.java          # Netty服务
+│   │   │   └── RecordingService.java      # 录制业务逻辑
+│   │   ├── sync/
+│   │   │   └── SNTPServer.java            # SNTP时间同步服务器
+│   │   ├── device/
+│   │   │   └── DeviceManager.java         # 设备管理
+│   │   └── shell/                         # Spring Shell命令行
+│   ├── src/main/resources/
+│   │   └── application.properties         # 服务器配置
+│   ├── audio/
+│   │   └── audio.properties               # 音频配置
+│   └── build.gradle.kts                   # Gradle构建配置
 │
-├── AudioCenterServer/                 # Java 服务端
-│   ├── src/
-│   │   └── main/
-│   │       ├── java/com/lannooo/
-│   │       │   ├── Main.java          # 主程序（自动启动 Netty + SNTP）
-│   │       │   ├── server/api/        # REST API 控制器
-│   │       │   │   ├── RecordingController.java   # 录制控制
-│   │       │   │   ├── DeviceController.java      # 设备管理
-│   │       │   │   └── TimeController.java        # 时间同步
-│   │       │   ├── service/
-│   │       │   │   └── RecordingService.java      # 录制业务逻辑
-│   │       │   └── sync/
-│   │       │       └── SNTPServer.java            # SNTP 服务器
-│   │       └── resources/
-│   │           └── application.properties         # 配置文件
-│   ├── build.gradle.kts               # Gradle 构建配置
-│   └── README.md                      # 服务端详细说明
-│
-├── matlab_client/                     # MATLAB 客户端工具
-│   ├── AudioClient.m                  # HTTP REST 客户端类
-│   ├── syncTimeNTP.m                  # SNTP 时间同步函数
+├── matlab_client/                     # MATLAB客户端工具
+│   ├── main_multimodal_data_capture.m # ⭐ 主控批量采集程序
+│   ├── AudioClient.m                  # HTTP REST客户端类
+│   ├── syncTimeNTP.m                  # SNTP时间同步函数
 │   ├── syncCapture.m                  # 同步采集协调函数
-│   ├── saveMetadata.m                 # 元数据保存函数
-│   ├── main_multimodal_data_capture.m # 主控批量采集程序 ⭐
-│   ├── test_audio_client.m            # AudioClient 测试脚本
-│   ├── test_sntp_sync.m               # SNTP 同步测试脚本
-│   └── test_radar_startup_delay.m     # 雷达启动延迟测量脚本 ⚠️
+│   ├── saveMetadata.m                 # 元数据保存函数（旧版）
+│   ├── test_audio_client.m            # AudioClient测试脚本
+│   ├── test_sntp_sync.m               # SNTP同步测试脚本
+│   │
+│   ├── utils/                         # ⭐ 工具函数库
+│   │   ├── loadScenesFromCSV.m        # 从CSV加载场景配置
+│   │   ├── getSceneInfo.m             # 获取场景信息（从CSV读取）
+│   │   ├── saveMetadataV2.m           # 新版元数据保存（推荐）
+│   │   ├── createDatasetInfo.m        # 生成数据集元信息
+│   │   ├── createScenesInfo.m         # 生成场景映射文件
+│   │   └── reorganizeData.m           # 旧数据格式转换
+│   │
+│   └── radar/                         # 雷达相关函数
+│       ├── Init_RSTD_Connection.m     # 雷达初始化
+│       ├── readDCA1000.m              # 雷达数据读取
+│       └── scenes_file.csv            # 场景配置（可扩展）
 │
-├── mmwave_radar/                      # 雷达控制脚本
-│   ├── data_collection_integrated.m   # 集成采集程序（旧版）
-│   ├── scenes_file.csv                # 场景配置文件（40个场景）
-│   ├── Init_RSTD_Connection.m         # 雷达初始化函数
-│   └── readDCA1000.m                  # 数据读取函数
+├── tools/                             # ⭐ Python工具集（深度学习）
+│   ├── multimodal_dataloader.py       # PyTorch DataLoader
+│   ├── split_dataset.py               # 数据集分割工具
+│   └── verify_dataset.py              # 数据完整性验证
 │
-├── config/                            # 配置文件
-│   ├── system_config.json             # 系统配置
-│   └── USAGE.md                       # 使用说明
-│
-└── [数据存储目录]/                    # 采集的数据（用户配置）
-    └── {人员组合}/                    # 例如：yh-ssk/
-        ├── {场景ID}.bin               # 雷达数据
-        ├── {场景ID}.wav               # 超声波数据（服务器端）
-        ├── {场景ID}_meta.json         # 元数据
-        └── capture_log_{timestamp}.csv # 采集日志
+└── config/                            # 系统配置
+    └── system_config.json             # 全局配置
 ```
+
+### 关键文件说明
+
+| 文件 | 用途 |
+|------|------|
+| `main_multimodal_data_capture.m` | 主控程序，批量采集入口 |
+| `AudioClient.m` | MATLAB HTTP客户端，封装REST API |
+| `utils/saveMetadataV2.m` | **推荐**使用的新版元数据保存函数 |
+| `utils/loadScenesFromCSV.m` | 从CSV文件加载场景配置（动态读取） |
+| `utils/getSceneInfo.m` | 根据场景代码获取场景信息 |
+| `utils/reorganizeData.m` | 将旧的平铺数据转换为层次化结构 |
+| `tools/multimodal_dataloader.py` | **PyTorch数据加载器**，支持批量训练 |
+| `tools/split_dataset.py` | 生成train/val/test分割 |
+| `tools/verify_dataset.py` | 数据完整性检查 |
+| `radar/scenes_file.csv` | 场景配置文件，支持动态修改 |
+| `AudioCenterServer/Main.java` | 服务器主程序，自动启动所有服务 |
+| `SETUP_AND_TEST.md` | 完整的安装、配置和测试指南 |
 
 ## 常见问题
 
-### Q1: AudioCenterServer 无法启动？
+详细的问题排查指南请查看 [SETUP_AND_TEST.md](SETUP_AND_TEST.md#常见问题排查)
 
-**A**: 
-- 检查 Java 版本是否为 JDK 17+，使用 `java -version` 确认
-- 确保使用 `gradlew.bat` 而非全局的 `gradle` 命令
-- 检查端口 6666（Netty）、8080（REST API）、1123（SNTP）是否被占用
+### 快速解决方案
 
-### Q2: 手机无法连接到服务器？
+| 问题 | 快速检查 |
+|------|----------|
+| 服务器启动失败 | 检查Java版本（>=17），端口占用 |
+| 手机无法连接 | 确认同一网络，防火墙主动设置开放端口6666（高级防火墙设置） |
+| 雷达连接失败 | USB连接，mmWave Studio运行`Run` (参考之前毫米波配置文档)|
+| 时间同步偏移大 | 检查网络延迟，关闭VPN |
+| MATLAB找不到函数 | 检查当前工作目录，添加路径 |
 
-**A**: 
-- 确认 PC 和手机在同一局域网
-- 检查防火墙是否阻止了 6666 端口
-- 在 PC 上运行 `ipconfig` 确认 IP 地址
-- 在手机 App 中输入正确的 IP:6666（注意是 Netty 端口，不是 8080）
+## API参考
 
-### Q3: 雷达连接失败？
+### MATLAB AudioClient API
 
-**A**:
-- 确认 mmWave Studio 已正确安装并启动
-- 检查 USB 连接和电源
-- 验证 RSTD_DLL_Path 路径是否正确
-- 检查是否有其他程序占用雷达连接
+```matlab
+% 创建客户端
+client = AudioClient(server_ip, server_port);
 
-### Q4: 时间同步失败或偏移量异常？
+% 主要方法
+devices = client.listDevices();                    % 获取设备列表
+[offset, rtt] = client.syncTime();                 % 时间同步
+success = client.startRecording(sceneId, duration, timestamp);
+client.stopRecording();                            % 停止录制
+status = client.getRecordingStatus();              % 获取状态
+```
 
-**A**: 
-- 运行 `test_sntp_sync.m` 检查 SNTP 服务器状态
-- 确保 AudioCenterServer 已启动（SNTP 服务在 1123 端口）
-- 检查防火墙是否阻止 UDP 1123 端口
-- 如果偏移量为 -28800000ms（8小时），说明时区配置错误，已在代码中修复
+### REST API端点
 
-### Q5: 雷达和音频不同步？
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/devices/list` | GET | 获取已连接设备列表 |
+| `/api/devices/status` | GET | 服务器状态检查 |
+| `/api/recording/start` | POST | 开始录制 |
+| `/api/recording/stop` | POST | 停止录制 |
+| `/api/recording/status` | GET | 获取录制状态 |
+| `/api/time/sync` | POST | SNTP时间同步 |
 
-**A**: 
-- **必须**先运行 `test_radar_startup_delay.m` 测量雷达启动延迟
-- 将测量结果填入 `main_multimodal_data_capture.m` 的 `RADAR_STARTUP_DELAY` 参数
-- 检查网络延迟（RTT）是否过大（> 50ms）
-- 确保 SNTP 同步质量良好（偏移 < 10ms）
+### 服务端口
 
-### Q6: 如何修改采集时长？
+| 端口 | 协议 | 用途 |
+|------|------|------|
+| 6666 | TCP | Android设备连接（Netty） |
+| 8080 | HTTP | MATLAB REST API |
+| 1123 | UDP | SNTP时间同步 |
 
-**A**: 在 `main_multimodal_data_capture.m` 的用户配置区修改 `capture_duration` 参数（单位：秒）。
+## 开发状态
 
-### Q7: scenes_file.csv 格式要求？
+### 已实现功能 ✅
 
-**A**: 
-- CSV 文件必须包含三列：`idx`（序号）、`intro`（场景描述）、`code`（文件名代码）
-- 确保使用 UTF-8 编码
-- 不要修改表头（第一行）
-- 场景代码（code）会用于文件命名，避免使用特殊字符
-
-### Q8: 如何跳过某个场景？
-
-**A**: 在程序提示 "输入 y 开始采集" 时，输入 `s` 即可跳过当前采集。跳过的记录会标记在日志文件中。
-
-### Q9: 采集失败后如何处理？
-
-**A**: 
-- 程序不会自动重试，避免中断整体流程
-- 查看采集日志 CSV 文件中的 `error_message` 列确定失败原因
-- 可以重新运行程序，手动跳过已成功的场景，只采集失败的部分
-
-### Q10: 元数据 JSON 文件有什么用？
-
-**A**: 
-- 记录每次采集的完整参数和同步质量信息
-- 用于后期数据分析时验证数据质量
-- 包含精确的触发时间戳，便于多模态数据对齐
-- 可用于数据溯源和实验记录
-
-## 开发计划
-
-### 已完成功能 ✅
-
-- [x] 毫米波雷达数据采集
-- [x] AudioCenterServer 基础框架（Spring Boot + Netty）
-- [x] Android 客户端连接管理
-- [x] REST API 接口（录制控制、设备管理、时间同步）
-- [x] MATLAB AudioClient 工具类
-- [x] SNTP 时间同步模块（Java 服务器 + MATLAB 客户端）
-- [x] 精确同步触发机制（考虑雷达启动延迟）
-- [x] 批量采集主控程序（main_multimodal_data_capture.m）
-- [x] 元数据自动生成（JSON 格式）
-- [x] 采集日志记录（CSV 格式）
+- [x] AudioCenterServer（Spring Boot + Netty + SNTP）
+- [x] REST API接口完整实现
+- [x] MATLAB AudioClient工具类
+- [x] SNTP时间同步（<10ms精度）
+- [x] 精确同步触发机制（雷达/音频延迟补偿）
+- [x] 批量采集主控程序
+- [x] 元数据自动生成（JSON）
+- [x] 采集日志记录（CSV）
 - [x] 雷达启动延迟测量工具
-- [x] 场景配置管理（40 个预设场景）
+- [x] 40个预设场景配置
+- [x] 完整测试脚本套件
 
-### 计划优化 📋
 
-- [ ] 数据质量实时检查（采集过程中）
-- [ ] 采集失败自动重试机制（可选配置）
-- [ ] 批量数据后处理工具（数据对齐、格式转换）
-- [ ] GUI 控制界面（可选，替代命令行）
-- [ ] 支持更多传感器模态（如 IMU、摄像头）
-- [ ] 云端数据自动备份
-- [ ] 数据压缩存储（减少磁盘占用）
-- [ ] 实时数据预览功能（波形显示）
+## 许可证
 
-### 性能优化 ⚡
+本项目仅供研究和学习使用。
 
-- [ ] 减少采集触发延迟（目标 < 10ms）
-- [ ] 优化数据传输效率（手机到 PC）
-- [ ] 改进错误处理和异常恢复
-- [ ] 完善日志系统（分级日志、自动轮转）
+## 致谢
+
+- TI mmWave Studio SDK
+- Spring Boot Framework
+- Netty Framework
 
 ---
 
-*最后更新：2026年1月6日*
+*最后更新：2026年1月12日*
