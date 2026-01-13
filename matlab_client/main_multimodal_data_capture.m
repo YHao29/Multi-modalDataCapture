@@ -106,7 +106,7 @@ fprintf('\n✓ 已选择大场景: %s\n', selected_location.location_name);
 fprintf('\n第2步：选择子场景（%s）\n', selected_location.location_name);
 
 % 过滤子场景
-available_subLocations = [];
+available_subLocations = subLocations([]); % 初始化为空结构体数组
 sub_idx_mapping = [];
 for i = 1:length(subLocations)
     if strcmp(subLocations(i).location_id, selected_location.location_id)
