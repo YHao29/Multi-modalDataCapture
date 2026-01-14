@@ -110,9 +110,9 @@ main_multimodal_data_capture
 - **[SETUP_AND_TEST.md](SETUP_AND_TEST.md)** - 完整的安装配置和测试指南
 ## 数据格式
 
-### 推荐：层次化数据组织（适用于深度学习）
+### 层次化数据组织
 
-**新项目推荐使用层次化结构**，便于数据加载和管理：
+项目采用层次化目录结构，便于数据加载和深度学习训练：
 
 ```
 dataset_root/
@@ -125,19 +125,40 @@ dataset_root/
     ├── subject_001/
     │   ├── samples_metadata.json    # 被试所有样本的元数据
     │   ├── radar/
-    │   │   ├── sample_001_front_static_left_static_idle.bin
-    │   │   ├── sample_002_front_static_left_moving_idle.bin
+    │   │   ├── sample_001_A1_B1_C1_D1_E1.bin
+    │   │   ├── sample_002_A1_B1_C1_D1_E2.bin
     │   │   └── ...
     │   └── audio/
-    │       ├── sample_001_front_static_left_static_idle.wav
-    │       ├── sample_002_front_static_left_moving_idle.wav
+    │       ├── sample_001_A1_B1_C1_D1_E1.wav
+    │       ├── sample_002_A1_B1_C1_D1_E2.wav
     │       └── ...
     ├── subject_002/
     │   └── ...
     └── ...
 ```
 
-#### 数据集元信息（dataset_info.json）
+### 文件命名规则
+
+#### 样本文件命名格式
+
+雷达和音频文件使用统一命名格式：`sample_{样本ID:03d}_{场景代码}`
+
+- **样本ID**：3位数字，如 `001`, `002`，范围 1-60（每被试60个样本）
+- **场景代码**：格式为 `A{数字}_B{数字}_C{数字}_D{数字}_E{数字}`
+
+**示例**：
+```
+sample_001_A1_B1_C1_D1_E1.bin    # 被试的第1个样本，场景 A1-B1-C1-D1-E1
+sample_001_A1_B1_C1_D1_E1.wav
+sample_015_A1_B2_C2_D2_E3.bin    # 被试的第15个样本，场景 A1-B2-C2-D2-E3
+sample_015_A1_B2_C2_D2_E3.wav
+```
+
+**文件名中的下划线替换规则**：场景代码中的连字符 `-` 在文件名中替换为下划线 `_`，确保文件名规范性。
+
+### 元数据格式
+
+#### 数据集元信息
 
 ```json
 {
@@ -166,7 +187,7 @@ dataset_root/
 }
 ```
 
-#### 被试元数据（samples_metadata.json）
+#### 被试元数据
 
 ```json
 {
@@ -193,6 +214,64 @@ dataset_root/
 }
 ```
 
+### 数据文件类型
+
+#### 1. 雷达数据（.bin）
+- **格式**：二进制文件（int16）
+- **维度**：[采样点数=256, chirp数=128, 天线数=4]
+- **读取**：使用 `readDCA1000.m` 函数
+```matlab
+[adcData, fileSize] = readDCA1000('path/to/sample_001_A1_B1_C1_D1_E1.bin');
+% adcData: [256, 128, 4]
+```
+
+#### 2. 超声波数据（.wav）
+- **格式**：WAV音频文件
+- **采样率**：44.1 kHz
+- **超声波频率**：20 kHz
+- **时长**：与雷达数据时间同步
+- **位置**：由AudioCenterServer管理
+
+### 场景编码说明
+
+场景代码格式：`A{数字}-B{数字}-C{数字}-D{数字}-E{数字}`
+
+**这是一个隐私保护场景下的窥视检测系统**，编码含义如下：
+
+- **A - 合法用户状态**
+  - `A0`: 环境基线（无人）
+  - `A1`: 合法用户存在
+
+- **B - 合法用户动作**
+  - `B0`: 基线
+  - `B1`: 静坐
+  - `B2`: 打字
+  - `B3`: 轻微摇晃
+
+- **C - 窥视者距离**
+  - `C0`: 无窥视者
+  - `C1`: 1.0米
+  - `C2`: 2.0米
+
+- **D - 窥视者角度**
+  - `D0`: 无窥视者
+  - `D1`: 0°（正面）
+  - `D2`: 60°（侧面）
+
+- **E - 窥视者行为**
+  - `E0`: 基线/无窥视者
+  - `E1`: 静止站立
+  - `E2`: 慢速路过
+  - `E3`: 靠近并驻足
+  - `E4`: 正常路过
+
+**编码示例**：
+- `A0-B0-C0-D0-E0`：环境基线（无人）
+- `A1-B1-C1-D1-E1`：合法用户静坐，窥视者1.0米-0°-静止站立
+- `A1-B2-C2-D2-E3`：合法用户打字，窥视者2.0米-60°-靠近并驻足
+
+共40个场景，详见 `matlab_client/radar/scenes_file.csv`
+
 ### 工具函数
 
 #### MATLAB工具（matlab_client/utils/）
@@ -205,10 +284,7 @@ createDatasetInfo('E:\data\', 'E:\data\dataset_info.json');
 sceneInfo = getSceneInfo('A1-B1-C1-D1-E1');
 % 返回: sceneInfo.intro = '合法用户静坐，窥视者1.0米-0°-静止站立'
 
-% 3. 转换旧数据到新格式
-reorganizeData('E:\old_data\', 'E:\new_data\');
-
-% 4. 使用新的元数据保存函数（推荐）
+% 3. 使用新的元数据保存函数（推荐）
 syncInfo = struct('ntp_offset_ms', 2.5, ...
                   'audio_start_time', '2024-01-15 10:30:00.123', ...
                   'radar_start_time', '2024-01-15 10:30:00.138');
@@ -261,67 +337,7 @@ python split_dataset.py --root E:/data/subjects --strategy sample --ratios 0.7 0
 python verify_dataset.py --root E:/data/subjects --output verification_report.txt
 ```
 
-### 传统：平铺文件结构（向后兼容）
 
-旧的采集方式仍然支持，数据文件采用统一命名格式：`{人员组合}-{场景代码}-{重复序号:02d}`
-
-示例：`yh-ssk-A1-B1-C1-D1-E1-01`
-
-### 数据文件类型
-
-#### 1. 雷达数据（.bin）
-- **格式**：二进制文件（int16）
-- **读取**：使用 `readDCA1000.m` 函数
-```matlab
-[adcData, fileSize] = readDCA1000('path/to/file.bin');
-% adcData: [采样点数=256, chirp数=128, 天线数=4]
-```
-
-#### 2. 超声波数据（.wav）
-- **格式**：WAV音频文件
-- **采样率**：44.1 kHz
-- **超声波频率**：20 kHz
-- **位置**：由AudioCenterServer管理
-
-### 场景编码说明
-
-场景代码格式：`A{数字}-B{数字}-C{数字}-D{数字}-E{数字}`
-
-**这是一个隐私保护场景下的窥视检测系统**，编码含义如下：
-
-- **A - 合法用户状态**
-  - `A0`: 环境基线（无人）
-  - `A1`: 合法用户存在
-
-- **B - 合法用户动作**
-  - `B0`: 基线
-  - `B1`: 静坐
-  - `B2`: 打字
-  - `B3`: 轻微摇晃
-
-- **C - 窥视者距离**
-  - `C0`: 无窥视者
-  - `C1`: 1.0米
-  - `C2`: 2.0米
-
-- **D - 窥视者角度**
-  - `D0`: 无窥视者
-  - `D1`: 0°（正面）
-  - `D2`: 60°（侧面）
-
-- **E - 窥视者行为**
-  - `E0`: 基线/无窥视者
-  - `E1`: 静止站立
-  - `E2`: 慢速路过
-  - `E3`: 靠近并驻足
-  - `E4`: 正常路过
-
-示例：
-- `A0-B0-C0-D0-E0`：环境基线（无人）
-- `A1-B1-C1-D1-E1`：合法用户静坐，窥视者1.0米-0°-静止站立
-- `A1-B2-C2-D2-E3`：合法用户打字，窥视者2.0米-60°-靠近并驻足
-
-共40个场景，详见 `matlab_client/radar/scenes_file.csv`
 
 ## 项目结构
 
