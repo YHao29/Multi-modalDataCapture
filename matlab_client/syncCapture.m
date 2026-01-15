@@ -1,4 +1,4 @@
-function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, duration, radarDelay, phoneDelay, radarDir, audioDir)
+function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, duration, radarDelay, phoneDelay, audioStartOffset, radarStartOffset, radarDir, audioDir)
 % syncCapture - 多模态同步采集协调函数
 %
 % 输入:
@@ -6,8 +6,10 @@ function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, durat
 %   radarObj: 未使用（保留用于兼容性，传递[]即可）
 %   sceneId: 场景ID字符串（用于文件命名）
 %   duration: 采集时长（秒）
-%   radarDelay: 雷达启动延迟（毫秒）
-%   phoneDelay: 手机音频启动延迟（毫秒）
+%   radarDelay: 雷达启动延迟（毫秒）- 设备从收到命令到实际开始采集的延迟
+%   phoneDelay: 手机音频启动延迟（毫秒）- 设备从收到命令到实际开始采集的延迟
+%   audioStartOffset: 音频采集开始时间偏移（毫秒）- 正值延后，负值提前
+%   radarStartOffset: 雷达采集开始时间偏移（毫秒）- 正值延后，负值提前
 %   radarDir: 雷达数据保存目录
 %   audioDir: 音频数据保存目录（用于记录元数据）
 %
@@ -24,13 +26,20 @@ function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, durat
 %       - success_status: 成功状态字符串
 %
 % 示例:
-%   [success, meta] = syncCapture(audioClient, [], 'sample_001_L01_SL01_A1-B1-C1-D1-E1', 10, 1000, 2200, radarDir, audioDir);
+%   % 音频和雷达同时开始
+%   [success, meta] = syncCapture(audioClient, [], 'sample_001', 10, 1000, 2200, 0, 0, radarDir, audioDir);
+%   % 音频提前5秒开始
+%   [success, meta] = syncCapture(audioClient, [], 'sample_001', 10, 1000, 2200, -5000, 0, radarDir, audioDir);
+%   % 雷达延后3秒开始
+%   [success, meta] = syncCapture(audioClient, [], 'sample_001', 10, 1000, 2200, 0, 3000, radarDir, audioDir);
 
     % 初始化返回值
     success = false;
     metadata = struct();
     metadata.radar_delay_ms = radarDelay;
     metadata.phone_delay_ms = phoneDelay;
+    metadata.audio_start_offset_ms = audioStartOffset;
+    metadata.radar_start_offset_ms = radarStartOffset;
     metadata.success_status = 'failed';
     
     try
@@ -48,25 +57,35 @@ function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, durat
         % 预触发缓冲时间
         PRE_TRIGGER_BUFFER = 100;  % 毫秒
         
-        % 计算理论同步触发时间点（考虑最大延迟）
-        % T_trigger = T_now + PRE_TRIGGER_BUFFER + max(radarDelay, phoneDelay)
+        % 新逻辑：使用offset参数控制采集开始时间
+        % 基准触发时间：以最大启动延迟为基准
         max_delay = max(radarDelay, phoneDelay);
-        trigger_timestamp_utc = round(current_utc_ms + PRE_TRIGGER_BUFFER + max_delay);
-        metadata.trigger_timestamp_utc = trigger_timestamp_utc;
+        base_trigger_time = round(current_utc_ms + PRE_TRIGGER_BUFFER + max_delay);
+        
+        % 计算各自的实际触发时间（加上offset）
+        % offset为正：延后开始；offset为负：提前开始
+        audio_trigger_time = base_trigger_time + audioStartOffset;
+        radar_trigger_time = base_trigger_time + radarStartOffset;
+        
+        % 记录基准触发时间
+        metadata.base_trigger_timestamp_utc = base_trigger_time;
+        metadata.audio_trigger_timestamp_utc = audio_trigger_time;
+        metadata.radar_trigger_timestamp_utc = radar_trigger_time;
         
         fprintf('  [时序] 当前时间: %d ms (UTC)\n', round(current_utc_ms));
-        fprintf('  [时序] 触发时间: %d ms (UTC)\n', trigger_timestamp_utc);
-        fprintf('  [时序] 延迟计算: 预触发=%dms + Max(雷达%d, 手机%d)=%dms\n', ...
-            PRE_TRIGGER_BUFFER, radarDelay, phoneDelay, max_delay);
+        fprintf('  [时序] 基准触发时间: %d ms (UTC)\n', base_trigger_time);
+        fprintf('  [时序] 音频触发时间: %d ms (偏移=%+d ms)\n', audio_trigger_time, audioStartOffset);
+        fprintf('  [时序] 雷达触发时间: %d ms (偏移=%+d ms)\n', radar_trigger_time, radarStartOffset);
             
-        % 计算各自的启动时间点
-        % Audio 在 trigger - phoneDelay 时刻发送
-        audio_cmd_time = trigger_timestamp_utc - phoneDelay;
-        % Radar 在 trigger - radarDelay 时刻发送
-        radar_cmd_time = trigger_timestamp_utc - radarDelay;
+        % 计算各自的命令发送时间点
+        % 命令发送时间 = 触发时间 - 设备启动延迟
+        audio_cmd_time = audio_trigger_time - phoneDelay;
+        radar_cmd_time = radar_trigger_time - radarDelay;
         
-        fprintf('  [时序] 计划音频发送: %d ms\n', round(audio_cmd_time));
-        fprintf('  [时序] 计划雷达发送: %d ms\n', round(radar_cmd_time));
+        fprintf('  [时序] 计划音频命令发送: %d ms (触发时间%d - 启动延迟%d)\n', ...
+            round(audio_cmd_time), audio_trigger_time, phoneDelay);
+        fprintf('  [时序] 计划雷达命令发送: %d ms (触发时间%d - 启动延迟%d)\n', ...
+            round(radar_cmd_time), radar_trigger_time, radarDelay);
         
         %% 3. 先配置雷达（不启动，仅Setup）
         fprintf('  [雷达] 配置雷达...\n');
@@ -95,7 +114,7 @@ function [success, metadata] = syncCapture(audioClient, radarObj, sceneId, durat
                 metadata.audio_files = {audio_filename};
                 
                 % 注意：startRecording 调用可能会阻塞一小段时间（HTTP请求）
-                audio_success = audioClient.startRecording(sceneId, duration, trigger_timestamp_utc);
+                audio_success = audioClient.startRecording(sceneId, duration, audio_trigger_time);
                 if ~audio_success
                     warning('  [音频] 音频采集启动失败');
                     metadata.success_status = 'audio_failed';

@@ -20,10 +20,16 @@ capture_duration = 5;
 repeat_count = 3;
 
 % 雷达启动延迟（毫秒）
-RADAR_STARTUP_DELAY = 1000;  % 默认1000ms
+RADAR_STARTUP_DELAY = 500;  % 默认1000ms
 
 % 手机音频启动延迟（毫秒）
-PHONE_STARTUP_DELAY = 2200;  % 默认1000ms
+PHONE_STARTUP_DELAY = 2200;  % 默认2200ms
+
+% 【可选】采集开始时间偏移控制（毫秒）
+% 正值表示延后开始，负值表示提前开始
+% 例如：AUDIO_START_OFFSET = -5000 表示音频提前5秒开始采集
+AUDIO_START_OFFSET = -1000;      % 默认0ms（与雷达同时开始）
+RADAR_START_OFFSET = 0;      % 默认0ms（与音频同时开始）
 
 % 服务器配置
 server_ip = '127.0.0.1';      % AudioCenterServer 的 IP 地址
@@ -60,7 +66,24 @@ fprintf(' 雷达DLL: 已找到\n');
 fprintf('\n配置参数:\n');
 fprintf('  - 采集时长: %d 秒\n', capture_duration);
 fprintf('  - 每场景重复: %d 次\n', repeat_count);
-fprintf('  - 雷达延迟: %d 毫秒\n', RADAR_STARTUP_DELAY);
+fprintf('  - 雷达启动延迟: %d 毫秒\n', RADAR_STARTUP_DELAY);
+fprintf('  - 手机启动延迟: %d 毫秒\n', PHONE_STARTUP_DELAY);
+fprintf('  - 音频偏移: %+d 毫秒 ', AUDIO_START_OFFSET);
+if AUDIO_START_OFFSET < 0
+    fprintf('(提前 %d ms)\n', abs(AUDIO_START_OFFSET));
+elseif AUDIO_START_OFFSET > 0
+    fprintf('(延后 %d ms)\n', AUDIO_START_OFFSET);
+else
+    fprintf('(与雷达同时)\n');
+end
+fprintf('  - 雷达偏移: %+d 毫秒 ', RADAR_START_OFFSET);
+if RADAR_START_OFFSET < 0
+    fprintf('(提前 %d ms)\n', abs(RADAR_START_OFFSET));
+elseif RADAR_START_OFFSET > 0
+    fprintf('(延后 %d ms)\n', RADAR_START_OFFSET);
+else
+    fprintf('(与音频同时)\n');
+end
 
 %% ==================== 加载三层场景配置 ====================
 fprintf('\n========== 加载场景配置 ==========\n');
@@ -406,10 +429,11 @@ for scene_idx = 1:total_scenes
         fprintf('\n场景ID: %s\n', sceneId);
         
         try
-            % 执行同步采集（传递radar和audio子目录路径）
+            % 执行同步采集（传递radar和audio子目录路径以及offset参数）
             fprintf('\n开始同步采集...\n');
             [success, metadata] = syncCapture(audioClient, [], sceneId, ...
-                capture_duration, RADAR_STARTUP_DELAY, PHONE_STARTUP_DELAY, radar_dir, audio_dir);
+                capture_duration, RADAR_STARTUP_DELAY, PHONE_STARTUP_DELAY, ...
+                AUDIO_START_OFFSET, RADAR_START_OFFSET, radar_dir, audio_dir);
             
             total_captures = total_captures + 1;
             
