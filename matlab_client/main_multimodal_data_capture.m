@@ -32,7 +32,7 @@ server_ip = '127.0.0.1';      % AudioCenterServer 的 IP 地址
 server_port = 8080;           % REST API 端口
 
 % 场景文件路径
-scenes_csv_file = 'radar/scenes_file.csv';
+scenes_csv_file = 'radar/scenes_file_v2.csv';
 
 % 雷达配置
 RSTD_DLL_Path = 'C:\ti\mmwave_studio_02_01_01_00\mmWaveStudio\Clients\RtttNetClientController\RtttNetClientAPI.dll';
@@ -69,7 +69,7 @@ fprintf('\n========== 加载场景配置 ==========\n');
 
 try
     % 使用新的工具函数加载三层场景配置
-    [locations, subLocations, actionScenes] = loadHierarchicalScenes();
+    [locations, subLocations, actionScenes] = loadHierarchicalScenes('v2');
     
     fprintf(' ✓ 场景配置加载完成\n');
     fprintf('   - 大场景: %d 个\n', length(locations));

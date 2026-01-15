@@ -1,4 +1,4 @@
-function [locations, subLocations, actionScenes] = loadHierarchicalScenes()
+function [locations, subLocations, actionScenes] = loadHierarchicalScenes(version)
 % loadHierarchicalScenes - 加载三层场景配置
 %
 % 输出:
@@ -17,16 +17,16 @@ function [locations, subLocations, actionScenes] = loadHierarchicalScenes()
 %       - code: 场景代码 (如 'A1-B1-C1-D1-E1')
 %
 % 示例:
-%   [locs, subLocs, actions] = loadHierarchicalScenes();
+%   [locs, subLocs, actions] = loadHierarchicalScenes('v2');
 
     % 获取当前脚本所在目录（假设在 matlab_client/utils/）
     script_dir = fileparts(mfilename('fullpath'));
     radar_dir = fullfile(script_dir, '..', 'radar');
     
     % 定义配置文件路径
-    locations_file = fullfile(radar_dir, 'locations.csv');
-    sub_locations_file = fullfile(radar_dir, 'sub_locations.csv');
-    scenes_file = fullfile(radar_dir, 'scenes_file.csv');
+    locations_file = fullfile(radar_dir, ['locations', version, '.csv']);
+    sub_locations_file = fullfile(radar_dir, ['sub_locations', version, '.csv']);
+    scenes_file = fullfile(radar_dir, ['scenes_file', version, '.csv']);
     
     %% 加载大场景配置
     if ~exist(locations_file, 'file')
