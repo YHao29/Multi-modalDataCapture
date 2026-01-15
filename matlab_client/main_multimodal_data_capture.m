@@ -16,15 +16,13 @@ data_root_path = 'F:\testData';
 % 【必填】采集时长（秒）
 capture_duration = 5;
 
-% 【必填】每个场景重复采集次数
+% 每个场景重复采集次数
 repeat_count = 3;
 
-% 【必填】雷达启动延迟（毫秒）
-% !!! 采集前必须运行 test_radar_startup_delay.m 测量此参数 !!!
+% 雷达启动延迟（毫秒）
 RADAR_STARTUP_DELAY = 1000;  % 默认1000ms
 
-% 【必填】手机音频启动延迟（毫秒）
-% 用于补偿手机启动录音的延迟，确保雷达和音频对齐yh-ssk
+% 手机音频启动延迟（毫秒）
 PHONE_STARTUP_DELAY = 2200;  % 默认1000ms
 
 % 服务器配置
