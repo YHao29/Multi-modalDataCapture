@@ -62,6 +62,14 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
         fullMetadata.capture_config.radar_delay_ms = metadata.radar_delay_ms;
         fullMetadata.capture_config.phone_delay_ms = metadata.phone_delay_ms;
         
+        % 添加offset参数（如果存在）
+        if isfield(metadata, 'audio_start_offset_ms')
+            fullMetadata.capture_config.audio_start_offset_ms = metadata.audio_start_offset_ms;
+        end
+        if isfield(metadata, 'radar_start_offset_ms')
+            fullMetadata.capture_config.radar_start_offset_ms = metadata.radar_start_offset_ms;
+        end
+        
         % 音频参数（Android端超声波模式）
         fullMetadata.audio_params = struct();
         fullMetadata.audio_params.sample_rate = 44100;  % Hz
@@ -78,12 +86,33 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
         fullMetadata.sync_quality = struct();
         fullMetadata.sync_quality.sntp_offset_ms = metadata.sntp_offset_ms;
         fullMetadata.sync_quality.rtt_ms = metadata.rtt_ms;
-        fullMetadata.sync_quality.trigger_timestamp_utc = metadata.trigger_timestamp_utc;
         
-        % 时间信息（可读格式）
-        trigger_datetime = datetime(metadata.trigger_timestamp_utc/1000, ...
-            'ConvertFrom', 'posixtime', 'TimeZone', 'UTC');
-        fullMetadata.sync_quality.trigger_time_readable = char(trigger_datetime);
+        % 新版字段（带offset的多个trigger时间）
+        if isfield(metadata, 'base_trigger_timestamp_utc')
+            fullMetadata.sync_quality.base_trigger_timestamp_utc = metadata.base_trigger_timestamp_utc;
+        end
+        if isfield(metadata, 'audio_trigger_timestamp_utc')
+            fullMetadata.sync_quality.audio_trigger_timestamp_utc = metadata.audio_trigger_timestamp_utc;
+        end
+        if isfield(metadata, 'radar_trigger_timestamp_utc')
+            fullMetadata.sync_quality.radar_trigger_timestamp_utc = metadata.radar_trigger_timestamp_utc;
+        end
+        
+        % 时间信息（可读格式）- 使用基准触发时间
+        if isfield(metadata, 'base_trigger_timestamp_utc')
+            trigger_timestamp = metadata.base_trigger_timestamp_utc;
+        else
+            % 向后兼容旧版本（如果没有新字段）
+            trigger_timestamp = 0;
+        end
+        
+        if trigger_timestamp > 0
+            trigger_datetime = datetime(trigger_timestamp/1000, ...
+                'ConvertFrom', 'posixtime', 'TimeZone', 'UTC');
+            fullMetadata.sync_quality.trigger_time_readable = char(trigger_datetime);
+        else
+            fullMetadata.sync_quality.trigger_time_readable = 'N/A';
+        end
         
         % 文件映射（使用相对路径）
         fullMetadata.file_mapping = struct();

@@ -11,7 +11,7 @@ clc;
 % !!! 请在采集前仔细配置以下参数 !!!
 
 % 【必填】数据存储根目录（采集员需预先手动创建好路径）
-data_root_path = 'F:\testData';
+data_root_path = 'D:\data';
 
 % 【必填】采集时长（秒）
 capture_duration = 5;
@@ -90,7 +90,7 @@ fprintf('\n========== 加载场景配置 ==========\n');
 
 try
     % 使用新的工具函数加载三层场景配置
-    [locations, subLocations, actionScenes] = loadHierarchicalScenes('v2');
+    [locations, subLocations, actionScenes] = loadHierarchicalScenes('_v2');
     
     fprintf(' ✓ 场景配置加载完成\n');
     fprintf('   - 大场景: %d 个\n', length(locations));
