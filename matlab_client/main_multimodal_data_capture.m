@@ -14,7 +14,7 @@ clc;
 data_root_path = 'D:\data';
 
 % 【必填】采集时长（秒）
-capture_duration = 5;
+capture_duration = 7;
 
 % 每个场景重复采集次数
 repeat_count = 3;
@@ -29,7 +29,7 @@ PHONE_STARTUP_DELAY = 2200;  % 默认2200ms
 % 正值表示延后开始，负值表示提前开始
 % 例如：AUDIO_START_OFFSET = -5000 表示音频提前5秒开始采集
 AUDIO_START_OFFSET = -1000;      % 默认0ms（与雷达同时开始）
-RADAR_START_OFFSET = 0;      % 默认0ms（与音频同时开始）
+RADAR_START_OFFSET = 1000;      % 默认0ms（与音频同时开始）
 
 % 服务器配置
 server_ip = '127.0.0.1';      % AudioCenterServer 的 IP 地址
