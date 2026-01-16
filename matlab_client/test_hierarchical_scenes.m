@@ -9,7 +9,7 @@ fprintf('========== 测试三层场景配置加载 ==========\n\n');
 
 try
     % 调用加载函数
-    [locations, subLocations, actionScenes] = loadHierarchicalScenes();
+    [locations, subLocations, actionScenes] = loadHierarchicalScenes('_v2');
     
     % 显示大场景
     fprintf('大场景 (%d个):\n', length(locations));
