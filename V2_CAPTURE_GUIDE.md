@@ -54,11 +54,11 @@ V2 使用三层场景配置，位置如下：
 ### 2.4 独立超声链路位置
 
 - 超声服务端工程：
-  - `E:\ScreenDataCapture\UltrasonicCenterServer`
+  - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterServer`
 - 超声 Android 客户端工程：
-  - `E:\ScreenDataCapture\UltrasonicCenterClient`
+  - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterClient`
 - 服务端音频落盘目录：
-  - `E:\ScreenDataCapture\UltrasonicCenterServer\audio`
+  - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterServer\audio`
 
 ### 2.5 V2 说明文档
 
@@ -147,7 +147,7 @@ RADAR_START_OFFSET = 1000;
 PowerShell 中执行：
 
 ```powershell
-cd E:\ScreenDataCapture\UltrasonicCenterServer
+cd E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterServer
 .\gradlew.bat bootRun
 ```
 
@@ -367,7 +367,7 @@ Repeat x/y. Enter y=start, s=skip, q=quit:
 5. 在计划时刻发送雷达 `StartFrame`
 6. 等待采集时长结束
 7. 停止雷达
-8. 轮询等待手机录音上传到 `UltrasonicCenterServer\audio`
+8. 轮询等待手机录音上传到 `Ultrasound_capture\UltrasonicCenterServer\audio`
 9. 将上传完成的 WAV 拷贝到被试目录下的 `audio`
 10. 校验雷达 `_Raw_0.bin` 文件
 11. 保存日志和元数据
@@ -416,7 +416,7 @@ subject_001\
 音频源文件先出现在：
 
 ```text
-E:\ScreenDataCapture\UltrasonicCenterServer\audio\
+E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterServer\audio\
 ```
 
 V2 会在上传完成后自动拷贝一份到被试目录。
@@ -623,8 +623,8 @@ captureOptions.upload_timeout_seconds = max(20, capture_duration + 10);
 
 ### 独立超声链路
 
-- `E:\ScreenDataCapture\UltrasonicCenterServer`
-- `E:\ScreenDataCapture\UltrasonicCenterClient`
+- `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterServer`
+- `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterClient`
 
 ### V2 补充说明
 

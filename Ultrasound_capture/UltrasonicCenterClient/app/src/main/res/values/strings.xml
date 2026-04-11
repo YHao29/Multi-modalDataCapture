@@ -1,0 +1,23 @@
+﻿<resources>
+    <string name="app_name">超声采集</string>
+    <string name="author">Junhao Wang</string>
+    <string name="publisher">Junhao-Wang@MusLab</string>
+    <string name="lab_name">MusLab</string>
+    <string name="welcome">Welcome!</string>
+
+    <string name="connect">Connect</string>
+    <string name="disconnect">Close</string>
+    <string name="ip_address">Server IP</string>
+    <string name="port">Port</string>
+    <string name="send">Send Message</string>
+
+    <string name="connect_alert_title">Connection results</string>
+    <string name="connect_alert_message">Your connection status: %s</string>
+    <string name="connect_alert_confirm">Confirm</string>
+    <string name="connect_status_none">No connection available</string>
+    <string name="connect_status_connecting">Establishing connection</string>
+    <string name="connect_status_ready">Connection Ready</string>
+    <string name="connect_status_lost">Connection is lost</string>
+    <string name="message_record_from_client">From Client</string>
+    <string name="message_record_from_server">From Server</string>
+</resources>

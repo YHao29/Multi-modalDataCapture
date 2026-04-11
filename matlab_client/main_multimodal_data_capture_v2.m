@@ -26,7 +26,10 @@ RSTD_DLL_Path = 'C:\ti\mmwave_studio_02_01_01_00\mmWaveStudio\Clients\RtttNetCli
 
 ultrasonic_device_id = '';
 script_dir = fileparts(mfilename('fullpath'));
-ultrasonic_server_audio_root = fullfile(script_dir, '..', '..', 'UltrasonicCenterServer', 'audio');
+ultrasonic_server_audio_root = resolveFirstExistingPath({ ...
+    fullfile(script_dir, '..', 'Ultrasound_capture', 'UltrasonicCenterServer', 'audio'), ...
+    fullfile(script_dir, '..', '..', 'UltrasonicCenterServer', 'audio'), ...
+    fullfile(script_dir, '..', '..', 'AudioCenterServer', 'audio')});
 ultrasonic_config = struct( ...
     'enabled', true, ...
     'mode', 'fmcw', ...
@@ -335,4 +338,17 @@ end
 
 function text = sanitizeCsv(text)
     text = strrep(char(string(text)), ',', ';');
+end
+
+function resolvedPath = resolveFirstExistingPath(candidates)
+    resolvedPath = '';
+    for idx = 1:numel(candidates)
+        currentPath = char(string(candidates{idx}));
+        if exist(currentPath, 'dir')
+            resolvedPath = currentPath;
+            return;
+        end
+    end
+
+    error('Could not locate ultrasonic server audio root. Checked paths: %s', strjoin(candidates, ', '));
 end

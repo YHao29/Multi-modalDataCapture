@@ -4,8 +4,8 @@
 
 V2 reconnects the validated standalone ultrasonic capture chain to the multimodal capture system.
 
-- Ultrasonic server: `UltrasonicCenterServer`
-- Ultrasonic client: `UltrasonicCenterClient`
+- Ultrasonic server: `Ultrasound_capture/UltrasonicCenterServer`
+- Ultrasonic client: `Ultrasound_capture/UltrasonicCenterClient`
 - Multimodal orchestrator: MATLAB in `Multimodal_data_capture/matlab_client`
 
 ## Sync model

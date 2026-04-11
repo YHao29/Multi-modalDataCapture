@@ -115,3 +115,22 @@ audio/id-names
 # 如果有密码或密钥，请确保不上传
 # *.properties
 # config/*.json
+
+# ==================== Ultrasound Capture Workspace ====================
+Ultrasound_capture/UltrasonicCenterServer/.gradle/
+Ultrasound_capture/UltrasonicCenterServer/.idea/
+Ultrasound_capture/UltrasonicCenterServer/audio/
+Ultrasound_capture/UltrasonicCenterServer/bin/
+Ultrasound_capture/UltrasonicCenterServer/build/
+Ultrasound_capture/UltrasonicCenterServer/logs/
+Ultrasound_capture/UltrasonicCenterServer/server_stderr.log
+Ultrasound_capture/UltrasonicCenterServer/server_stdout.log
+
+Ultrasound_capture/UltrasonicCenterClient/.git/
+Ultrasound_capture/UltrasonicCenterClient/.git.embedded-backup/
+Ultrasound_capture/UltrasonicCenterClient/.gradle/
+Ultrasound_capture/UltrasonicCenterClient/.idea/
+Ultrasound_capture/UltrasonicCenterClient/build/
+Ultrasound_capture/UltrasonicCenterClient/local.properties
+
+Ultrasound_capture/ultrasonic_tools/
