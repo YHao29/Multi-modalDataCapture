@@ -38,6 +38,9 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
         % 人员组合和ID
         fullMetadata.staff_combination = staffCombo;
         fullMetadata.subject_id = subjectId;
+        fullMetadata.capture_system = struct();
+        fullMetadata.capture_system.version = getMetadataField(metadata, 'capture_system_version', 'V1');
+        fullMetadata.capture_system.audio_chain_version = getMetadataField(metadata, 'audio_chain_version', 'V1');
         
         % 三层场景信息
         fullMetadata.location = struct();
@@ -71,11 +74,19 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
         end
         
         % 音频参数（Android端超声波模式）
+        ultrasonicConfig = getMetadataField(metadata, 'ultrasonic_config', struct());
         fullMetadata.audio_params = struct();
-        fullMetadata.audio_params.sample_rate = 44100;  % Hz
-        fullMetadata.audio_params.ultrasonic_freq = 20000;  % Hz
+        fullMetadata.audio_params.sample_rate = getMetadataField(ultrasonicConfig, 'sampleRateHz', 44100);  % Hz
+        fullMetadata.audio_params.ultrasonic_freq = getMetadataField(ultrasonicConfig, 'startFreqHz', 20000);  % Hz
+        fullMetadata.audio_params.start_freq_hz = getMetadataField(ultrasonicConfig, 'startFreqHz', 20000);
+        fullMetadata.audio_params.end_freq_hz = getMetadataField(ultrasonicConfig, 'endFreqHz', 20000);
+        fullMetadata.audio_params.chirp_duration_ms = getMetadataField(ultrasonicConfig, 'chirpDurationMs', 0);
+        fullMetadata.audio_params.idle_duration_ms = getMetadataField(ultrasonicConfig, 'idleDurationMs', 0);
+        fullMetadata.audio_params.amplitude = getMetadataField(ultrasonicConfig, 'amplitude', 1.0);
+        fullMetadata.audio_params.window_type = getMetadataField(ultrasonicConfig, 'windowType', 'unknown');
+        fullMetadata.audio_params.repeat = getMetadataField(ultrasonicConfig, 'repeat', false);
         fullMetadata.audio_params.format = 'wav';
-        fullMetadata.audio_params.mode = 'ultrasonic';
+        fullMetadata.audio_params.mode = getMetadataField(ultrasonicConfig, 'mode', 'ultrasonic');
         
         % 雷达参数
         fullMetadata.radar_params = struct();
@@ -117,8 +128,15 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
         % 文件映射（使用相对路径）
         fullMetadata.file_mapping = struct();
         fullMetadata.file_mapping.radar_file = fullfile('radar', metadata.radar_file);
+        audioFiles = getMetadataField(metadata, 'audio_files', {});
+        if ischar(audioFiles) || isstring(audioFiles)
+            audioFiles = {char(string(audioFiles))};
+        end
         fullMetadata.file_mapping.audio_files = cellfun(@(x) fullfile('audio', x), ...
-            metadata.audio_files, 'UniformOutput', false);
+            audioFiles, 'UniformOutput', false);
+        if isfield(metadata, 'audio_server_relative_path')
+            fullMetadata.file_mapping.audio_server_relative_path = metadata.audio_server_relative_path;
+        end
         
         % 采集状态
         fullMetadata.capture_status = struct();
@@ -142,5 +160,17 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
         
     catch ME
         warning('保存元数据失败: %s', ME.message);
+    end
+end
+
+function value = getMetadataField(structValue, fieldName, defaultValue)
+    if nargin < 3
+        defaultValue = [];
+    end
+
+    if isstruct(structValue) && isfield(structValue, fieldName)
+        value = structValue.(fieldName);
+    else
+        value = defaultValue;
     end
 end
