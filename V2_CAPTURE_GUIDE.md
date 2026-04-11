@@ -283,6 +283,29 @@ ultrasonic_config = struct( ...
 
 建议在 MATLAB 中先切到脚本目录：
 
+### 当前推荐参数
+
+当前正式推荐使用 `param_E`，该参数来自 2 m 参数扫描实验结果，排名第 1。
+
+对应结果文件：
+
+- `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\ultrasonic_tools\experiment_runs\20260401_141154\analysis\scan_2m_ranking.csv`
+- `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\ultrasonic_tools\experiment_runs\20260401_141154\analysis\scan_2m_report.json`
+
+`param_E` 的参数如下：
+
+- `sampleRateHz = 48000`
+- `startFreqHz = 20000`
+- `endFreqHz = 22000`
+- `chirpDurationMs = 40`
+- `idleDurationMs = 0`
+- `amplitude = 0.30`
+- `windowType = 'hann'`
+- `repeat = true`
+- `mode = 'fmcw'`
+
+当前 `main_multimodal_data_capture_v2.m` 中的默认超声参数已经与 `param_E` 保持一致。
+
 ```matlab
 cd('E:\ScreenDataCapture\Multimodal_data_capture\matlab_client')
 main_multimodal_data_capture_v2
