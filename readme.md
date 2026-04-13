@@ -495,40 +495,40 @@ status = client.getRecordingStatus();              % 获取状态
 ---
 
 *最后更新：2026年1月12日*
-## V2 Update (2026-04)
+## V2 更新说明（2026-04）
 
-The current recommended multimodal capture entry is the V2 workflow.
+当前推荐使用的多模态采集入口为 V2 流程。
 
-### V2 entry scripts
+### V2 入口脚本
 
-- MATLAB entry:
+- MATLAB 主入口：
   - `E:\ScreenDataCapture\Multimodal_data_capture\matlab_client\main_multimodal_data_capture_v2.m`
-- V2 sync logic:
+- V2 同步逻辑：
   - `E:\ScreenDataCapture\Multimodal_data_capture\matlab_client\syncCaptureV2.m`
-- Ultrasonic REST client:
+- 超声 REST 客户端：
   - `E:\ScreenDataCapture\Multimodal_data_capture\matlab_client\UltrasonicAudioClientV2.m`
-- Metadata writer:
+- 元数据写入：
   - `E:\ScreenDataCapture\Multimodal_data_capture\matlab_client\saveMetadata.m`
 
-### Ultrasound chain location
+### 超声链路位置
 
-- Ultrasonic server:
+- 超声服务端：
   - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterServer`
-- Ultrasonic Android client:
+- 超声 Android 客户端：
   - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterClient`
-- Ultrasonic analysis tools:
+- 超声分析工具：
   - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\ultrasonic_tools`
 
-### Current recommended ultrasonic parameter set
+### 当前推荐超声参数
 
-The current recommended parameter set is `param_E`, based on the 2 m parameter scan results.
+当前推荐参数组为 `param_E`，依据 2 m 参数扫描实验结果确定。
 
-Reference files:
+参考结果文件：
 
 - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\ultrasonic_tools\experiment_runs\20260401_141154\analysis\scan_2m_ranking.csv`
 - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\ultrasonic_tools\experiment_runs\20260401_141154\analysis\scan_2m_report.json`
 
-`param_E`:
+`param_E` 参数如下：
 
 - `sampleRateHz = 48000`
 - `startFreqHz = 20000`
@@ -540,17 +540,17 @@ Reference files:
 - `repeat = true`
 - `mode = 'fmcw'`
 
-### Important sync note
+### 同步注意事项
 
-V2 still follows the V1 synchronization requirement:
+V2 仍然遵循 V1 的同步要求：
 
-1. MATLAB computes the shared trigger timeline.
-2. Radar and ultrasonic command send times are compensated by startup delays.
-3. `PHONE_STARTUP_DELAY` must include the Android pre-cue beep and recorder/player startup latency.
+1. 由 MATLAB 统一计算共享触发时间线。
+2. 雷达与超声命令发送时刻都需要做启动延迟补偿。
+3. `PHONE_STARTUP_DELAY` 必须包含 Android 端预提示音和录放初始化延迟。
 
-### Additional docs
+### 相关文档
 
-- V2 guide:
+- V2 操作指南：
   - `E:\ScreenDataCapture\Multimodal_data_capture\V2_CAPTURE_GUIDE.md`
-- V2 notes:
+- V2 说明：
   - `E:\ScreenDataCapture\Multimodal_data_capture\V2_NOTES.md`
