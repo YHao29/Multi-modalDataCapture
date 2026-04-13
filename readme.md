@@ -481,17 +481,6 @@ status = client.getRecordingStatus();              % 获取状态
 - [x] 40个预设场景配置
 - [x] 完整测试脚本套件
 
-
-## 许可证
-
-本项目仅供研究和学习使用。
-
-## 致谢
-
-- TI mmWave Studio SDK
-- Spring Boot Framework
-- Netty Framework
-
 ---
 
 *最后更新：2026年1月12日*
