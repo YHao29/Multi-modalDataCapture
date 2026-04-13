@@ -495,3 +495,62 @@ status = client.getRecordingStatus();              % 获取状态
 ---
 
 *最后更新：2026年1月12日*
+## V2 Update (2026-04)
+
+The current recommended multimodal capture entry is the V2 workflow.
+
+### V2 entry scripts
+
+- MATLAB entry:
+  - `E:\ScreenDataCapture\Multimodal_data_capture\matlab_client\main_multimodal_data_capture_v2.m`
+- V2 sync logic:
+  - `E:\ScreenDataCapture\Multimodal_data_capture\matlab_client\syncCaptureV2.m`
+- Ultrasonic REST client:
+  - `E:\ScreenDataCapture\Multimodal_data_capture\matlab_client\UltrasonicAudioClientV2.m`
+- Metadata writer:
+  - `E:\ScreenDataCapture\Multimodal_data_capture\matlab_client\saveMetadata.m`
+
+### Ultrasound chain location
+
+- Ultrasonic server:
+  - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterServer`
+- Ultrasonic Android client:
+  - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenterClient`
+- Ultrasonic analysis tools:
+  - `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\ultrasonic_tools`
+
+### Current recommended ultrasonic parameter set
+
+The current recommended parameter set is `param_E`, based on the 2 m parameter scan results.
+
+Reference files:
+
+- `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\ultrasonic_tools\experiment_runs\20260401_141154\analysis\scan_2m_ranking.csv`
+- `E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\ultrasonic_tools\experiment_runs\20260401_141154\analysis\scan_2m_report.json`
+
+`param_E`:
+
+- `sampleRateHz = 48000`
+- `startFreqHz = 20000`
+- `endFreqHz = 22000`
+- `chirpDurationMs = 40`
+- `idleDurationMs = 0`
+- `amplitude = 0.30`
+- `windowType = 'hann'`
+- `repeat = true`
+- `mode = 'fmcw'`
+
+### Important sync note
+
+V2 still follows the V1 synchronization requirement:
+
+1. MATLAB computes the shared trigger timeline.
+2. Radar and ultrasonic command send times are compensated by startup delays.
+3. `PHONE_STARTUP_DELAY` must include the Android pre-cue beep and recorder/player startup latency.
+
+### Additional docs
+
+- V2 guide:
+  - `E:\ScreenDataCapture\Multimodal_data_capture\V2_CAPTURE_GUIDE.md`
+- V2 notes:
+  - `E:\ScreenDataCapture\Multimodal_data_capture\V2_NOTES.md`
