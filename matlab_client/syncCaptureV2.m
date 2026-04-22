@@ -20,6 +20,7 @@ function [success, metadata] = syncCaptureV2(audioClient, radarObj, sceneId, dur
     metadata.radar_start_offset_ms = radarStartOffset;
     metadata.device_id = captureOptions.device_id;
     metadata.ultrasonic_config = captureOptions.ultrasonic;
+    metadata.route_requested_preset = safeRoutePreset(captureOptions.ultrasonic);
     metadata.success_status = 'failed';
 
     try
@@ -107,14 +108,20 @@ function [success, metadata] = syncCaptureV2(audioClient, radarObj, sceneId, dur
             metadata.device_id, ...
             captureOptions.upload_timeout_seconds);
         metadata.ultrasonic_capture_status = ultrasonicStatus;
+        metadata = mergeRouteMetadataFromStatus(metadata, ultrasonicStatus);
 
         if ~uploadedOk
             try
                 audioClient.stopUltrasonicCapture(metadata.device_id);
             catch
             end
-            metadata.success_status = 'audio_upload_timeout';
-            fprintf('  [error] ultrasonic upload did not finish in time.\n');
+            if strcmp(safeField(metadata, 'route_binding_status', ''), 'failed')
+                metadata.success_status = 'audio_route_binding_failed';
+                fprintf('  [error] ultrasonic route binding failed: %s\n', safeField(metadata, 'route_error_message', 'unknown'));
+            else
+                metadata.success_status = 'audio_upload_timeout';
+                fprintf('  [error] ultrasonic upload did not finish in time.\n');
+            end
             return;
         end
 
@@ -136,6 +143,7 @@ function [success, metadata] = syncCaptureV2(audioClient, radarObj, sceneId, dur
         if isstruct(captureResponse) && isfield(captureResponse, 'request_ultrasonic')
             metadata.ultrasonic_config = captureResponse.request_ultrasonic;
         end
+        metadata = mergeRouteMetadataFromStatus(metadata, ultrasonicStatus);
 
         metadata.success_status = 'success';
         success = true;
@@ -185,6 +193,7 @@ function cfg = defaultUltrasonicConfig()
     cfg = struct( ...
         'enabled', true, ...
         'mode', 'fmcw', ...
+        'routePreset', '', ...
         'sampleRateHz', 48000, ...
         'startFreqHz', 20000.0, ...
         'endFreqHz', 22000.0, ...
@@ -240,5 +249,35 @@ function relPath = makeRelativePath(absPath, rootPath)
     rootWithSep = [rootPath filesep];
     if startsWith(lower(absPath), lower(rootWithSep))
         relPath = absPath(numel(rootWithSep) + 1:end);
+    end
+end
+
+function preset = safeRoutePreset(ultrasonicConfig)
+    preset = '';
+    if isstruct(ultrasonicConfig) && isfield(ultrasonicConfig, 'routePreset')
+        preset = char(string(ultrasonicConfig.routePreset));
+    end
+end
+
+function metadata = mergeRouteMetadataFromStatus(metadata, ultrasonicStatus)
+    if ~isstruct(ultrasonicStatus) || ~isfield(ultrasonicStatus, 'state') || ~isstruct(ultrasonicStatus.state)
+        return;
+    end
+
+    state = ultrasonicStatus.state;
+    metadata.route_requested_preset = safeField(state, 'route_requested_preset', safeField(metadata, 'route_requested_preset', ''));
+    metadata.route_applied_preset = safeField(state, 'route_applied_preset', '');
+    metadata.route_binding_status = safeField(state, 'route_binding_status', '');
+    metadata.route_output_binding = safeField(state, 'route_output_binding', '');
+    metadata.route_input_binding = safeField(state, 'route_input_binding', '');
+    metadata.route_error_message = safeField(state, 'route_error_message', '');
+    metadata.route_device_model = safeField(state, 'route_device_model', '');
+end
+
+function value = safeField(structValue, fieldName, defaultValue)
+    if isstruct(structValue) && isfield(structValue, fieldName)
+        value = structValue.(fieldName);
+    else
+        value = defaultValue;
     end
 end

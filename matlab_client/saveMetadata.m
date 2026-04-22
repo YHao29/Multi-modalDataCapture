@@ -137,6 +137,15 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
         if isfield(metadata, 'audio_server_relative_path')
             fullMetadata.file_mapping.audio_server_relative_path = metadata.audio_server_relative_path;
         end
+
+        fullMetadata.audio_route = struct();
+        fullMetadata.audio_route.requested_preset = getMetadataField(metadata, 'route_requested_preset', getMetadataField(ultrasonicConfig, 'routePreset', ''));
+        fullMetadata.audio_route.applied_preset = getMetadataField(metadata, 'route_applied_preset', '');
+        fullMetadata.audio_route.device_model = getMetadataField(metadata, 'route_device_model', '');
+        fullMetadata.audio_route.output_binding = getMetadataField(metadata, 'route_output_binding', '');
+        fullMetadata.audio_route.input_binding = getMetadataField(metadata, 'route_input_binding', '');
+        fullMetadata.audio_route.binding_status = getMetadataField(metadata, 'route_binding_status', '');
+        fullMetadata.audio_route.error_message = getMetadataField(metadata, 'route_error_message', '');
         
         % 采集状态
         fullMetadata.capture_status = struct();

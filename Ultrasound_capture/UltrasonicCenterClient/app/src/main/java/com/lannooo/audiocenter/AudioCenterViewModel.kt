@@ -41,6 +41,8 @@ class AudioCenterViewModel : ViewModel() {
     fun updateAmplitude(it: String) = _uiState.update { s -> s.copy(amplitude = it) }
     fun updateWindowType(it: String) = _uiState.update { s -> s.copy(windowType = it) }
     fun updateRepeatChirp(it: Boolean) = _uiState.update { s -> s.copy(repeatChirp = it) }
+    fun updateRouteOutputDeviceId(it: String) = _uiState.update { s -> s.copy(routeOutputDeviceId = it) }
+    fun updateRouteInputDeviceId(it: String) = _uiState.update { s -> s.copy(routeInputDeviceId = it) }
 
     private fun addMessageRecord(fromMe: Boolean, type: Message.MessageType, content: String) {
         val record = MessageRecord(if (fromMe) 'C' else 'S', type, content, currentDateTime())
@@ -53,6 +55,30 @@ class AudioCenterViewModel : ViewModel() {
     fun sendTestMessage() {
         viewModelScope.launch(Dispatchers.IO) {
             binder?.sendRegisterMessage()
+        }
+    }
+
+    fun refreshRouteDiagnostics() {
+        val currentBinder = binder ?: return
+        _uiState.update { currentState ->
+            currentState.copy(
+                routePresetName = currentBinder.routePresetName,
+                routeDeviceSummary = currentBinder.routeDeviceIdentitySummary,
+                routeCalibrationStatus = currentBinder.routeCalibrationStatus,
+                routeOutputDeviceId = currentBinder.savedRouteOutputDeviceId,
+                routeInputDeviceId = currentBinder.savedRouteInputDeviceId,
+                routeDiagnosticsText = currentBinder.routeDiagnosticsText
+            )
+        }
+    }
+
+    fun saveRouteCalibration() {
+        val currentBinder = binder ?: return
+        val state = _uiState.value
+        currentBinder.saveRouteCalibration(state.routeOutputDeviceId, state.routeInputDeviceId)
+        refreshRouteDiagnostics()
+        _uiState.update { currentState ->
+            currentState.copy(showDialog = true, networkMessage = "Route calibration saved on device.")
         }
     }
 
@@ -89,6 +115,7 @@ class AudioCenterViewModel : ViewModel() {
             }
             if (success) {
                 applyUltrasonicConfig()
+                refreshRouteDiagnostics()
                 _uiState.update { currentState ->
                     currentState.copy(networkStatus = ConnectionStatus.READY, showDialog = true, networkMessage = "Connection with ${_uiState.value.ip}:${_uiState.value.port} is established.")
                 }
@@ -121,13 +148,14 @@ class AudioCenterViewModel : ViewModel() {
             Log.i(TAG, "Service Connected")
             val clientBinder = service as ClientBinder
             clientBinder.setMessageListener(_messageListener)
-            _serviceBinder.postValue(clientBinder)
+            _serviceBinder.value = clientBinder
             applyUltrasonicConfig()
+            refreshRouteDiagnostics()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             _serviceBinder.value?.setMessageListener(null)
-            _serviceBinder.postValue(null)
+            _serviceBinder.value = null
         }
     }
 

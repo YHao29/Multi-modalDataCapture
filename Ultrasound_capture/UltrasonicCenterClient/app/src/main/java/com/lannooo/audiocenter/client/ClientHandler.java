@@ -2,12 +2,11 @@ package com.lannooo.audiocenter.client;
 
 import static com.lannooo.audiocenter.tool.MessageUtil.fileUploadRequest;
 
-import android.media.AudioManager;
-import android.media.ToneGenerator;
 import android.util.Log;
 
 import com.lannooo.audiocenter.audio.AudioEventListener;
 import com.lannooo.audiocenter.audio.ClientAudioHandler;
+import com.lannooo.audiocenter.audio.RoutePresetManager;
 import com.lannooo.audiocenter.audio.UltrasonicConfig;
 import com.lannooo.audiocenter.audio.UploadingFileItem;
 import com.lannooo.audiocenter.tool.HandlerUtil;
@@ -32,7 +31,6 @@ import io.netty.handler.stream.ChunkedNioFile;
 
 public class ClientHandler extends SimpleChannelInboundHandler<Message> {
     public static final String TAG = "ClientHandler";
-    private static final int CAPTURE_START_BEEP_TOTAL_MILLIS = 1000;
 
     private final ClientAudioHandler audioHandler;
     private final MessageListener listener;
@@ -180,7 +178,7 @@ public class ClientHandler extends SimpleChannelInboundHandler<Message> {
             final String outputName = HandlerUtil.formatOutputWavFileName(rawOutputName, isCustom ? "wav" : "m4a");
             executor.submit(() -> {
                 try {
-                    playCaptureStartBeep();
+                    RoutePresetManager.PreparedRoute preparedRoute = audioHandler.prepareRoute(ultrasonicConfig.getRoutePreset());
                     audioHandler.configureRecorder(outputName, (int) duration, process, isCustom, enableUltra, new AudioEventListener() {
                         @Override
                         public void onRecordStart() {
@@ -211,10 +209,13 @@ public class ClientHandler extends SimpleChannelInboundHandler<Message> {
                         }
                     });
 
+                    reportRouteStatus(ctx, preparedRoute.toStatusMap(outputName));
+                    audioHandler.playCaptureStartBeep();
                     audioHandler.startRecorder();
                     writeShortResponse(ctx, "Started Recording: " + outputName);
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to start recording with pre-cue", e);
+                    reportRouteStatus(ctx, RoutePresetManager.PreparedRoute.failed(ultrasonicConfig.getRoutePreset(), audioHandler.getRouteDeviceIdentitySummary(), e.getMessage()).toStatusMap(outputName));
                     writeShortResponse(ctx, "Failed to start Recording: " + outputName);
                 }
             });
@@ -229,35 +230,6 @@ public class ClientHandler extends SimpleChannelInboundHandler<Message> {
             writeShortResponse(ctx, "Resumed Recording");
         } else {
             writeShortResponse(ctx, "Oops! Invalid action for recording");
-        }
-    }
-
-    private void playCaptureStartBeep() {
-        ToneGenerator ringTone = null;
-        ToneGenerator alarmTone = null;
-        try {
-            ringTone = new ToneGenerator(AudioManager.STREAM_RING, 100);
-            alarmTone = new ToneGenerator(AudioManager.STREAM_ALARM, 100);
-
-            ringTone.startTone(ToneGenerator.TONE_PROP_BEEP2, 250);
-            alarmTone.startTone(ToneGenerator.TONE_PROP_BEEP2, 250);
-            Thread.sleep(320L);
-
-            ringTone.startTone(ToneGenerator.TONE_PROP_ACK, 250);
-            alarmTone.startTone(ToneGenerator.TONE_PROP_ACK, 250);
-            Thread.sleep(CAPTURE_START_BEEP_TOTAL_MILLIS - 320);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            Log.e(TAG, "Capture start beep interrupted", e);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to play capture start beep", e);
-        } finally {
-            if (ringTone != null) {
-                ringTone.release();
-            }
-            if (alarmTone != null) {
-                alarmTone.release();
-            }
         }
     }
 
@@ -325,6 +297,15 @@ public class ClientHandler extends SimpleChannelInboundHandler<Message> {
                 listener.onMessageReceived(true, Message.MessageType.RESPONSE, x);
             }
         });
+    }
+
+    private void reportRouteStatus(ChannelHandlerContext ctx, Map<String, Object> routeState) {
+        MessageRequest request = new MessageRequest("route_status");
+        for (Map.Entry<String, Object> entry : routeState.entrySet()) {
+            request.put(entry.getKey(), entry.getValue());
+        }
+        Message msg = new Message(Message.MessageType.REQUEST, request.toJsonString().getBytes());
+        ctx.writeAndFlush(msg);
     }
 
     public interface RequestHandler {

@@ -3,6 +3,7 @@ package com.lannooo.device;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,6 +79,32 @@ public class DeviceManager {
 
     public Map<String, Boolean> getPlaybackStatus() {
         return Collections.unmodifiableMap(playbackStatus);
+    }
+
+    public Map<String, Object> getDeviceExtra(String key) {
+        Device device = devices.get(key);
+        if (device instanceof PhoneDevice) {
+            Map<String, Object> extra = ((PhoneDevice) device).getExtra();
+            if (extra != null) {
+                return Collections.unmodifiableMap(extra);
+            }
+        }
+        return Collections.emptyMap();
+    }
+
+    public Map<String, Object> getRouteCapabilitySnapshot(String key) {
+        Map<String, Object> extra = getDeviceExtra(key);
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("manufacturer", extra.getOrDefault("Manufacturer", "Unknown"));
+        snapshot.put("brand", extra.getOrDefault("Brand", "Unknown"));
+        snapshot.put("model", extra.getOrDefault("Model", "Unknown"));
+        snapshot.put("sdk", extra.getOrDefault("SDK", "Unknown"));
+        snapshot.put("supported_route_presets", extra.getOrDefault("supported_route_presets", Collections.emptyList()));
+        snapshot.put("route_calibration_status", extra.getOrDefault("route_calibration_status", "unknown"));
+        snapshot.put("route_device_key", extra.getOrDefault("route_device_key", ""));
+        snapshot.put("route_calibrated_output_id", extra.getOrDefault("route_calibrated_output_id", ""));
+        snapshot.put("route_calibrated_input_id", extra.getOrDefault("route_calibrated_input_id", ""));
+        return snapshot;
     }
 
     public List<String> getConnectedDevices() {

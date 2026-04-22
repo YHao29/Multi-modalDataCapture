@@ -33,6 +33,7 @@ ultrasonic_server_audio_root = resolveFirstExistingPath({ ...
 ultrasonic_config = struct( ...
     'enabled', true, ...
     'mode', 'fmcw', ...
+    'routePreset', 'mate40pro_bottom_speaker_bottom_mic', ...
     'sampleRateHz', 48000, ...
     'startFreqHz', 20000.0, ...
     'endFreqHz', 22000.0, ...
@@ -65,6 +66,13 @@ confirmOrAbort(selected_location, selected_sub_location, actionScenes);
 %% Init ultrasonic client
 audioClient = UltrasonicAudioClientV2(server_ip, server_port);
 device_id = audioClient.resolveDeviceId(ultrasonic_device_id);
+[route_preset, has_route_preset] = readRoutePreset(ultrasonic_config);
+if has_route_preset
+    preflight = audioClient.preflightRoute(device_id, route_preset);
+    fprintf('Route preflight: %s\n', safeField(preflight, 'message', 'ok'));
+else
+    fprintf('Route preflight: default route (no preset requested)\n');
+end
 [offset_ms, ~] = audioClient.syncTime();
 fprintf('Ultrasonic device: %s\n', device_id);
 fprintf('Time sync offset: %.2f ms\n', offset_ms);
@@ -339,6 +347,15 @@ end
 
 function text = sanitizeCsv(text)
     text = strrep(char(string(text)), ',', ';');
+end
+
+function [routePreset, hasPreset] = readRoutePreset(ultrasonic_config)
+    routePreset = '';
+    hasPreset = false;
+    if isstruct(ultrasonic_config) && isfield(ultrasonic_config, 'routePreset')
+        routePreset = char(string(ultrasonic_config.routePreset));
+        hasPreset = ~isempty(strtrim(routePreset));
+    end
 end
 
 function resolvedPath = resolveFirstExistingPath(candidates)

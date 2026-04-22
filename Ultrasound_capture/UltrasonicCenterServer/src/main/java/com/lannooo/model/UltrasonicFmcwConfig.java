@@ -3,6 +3,7 @@ package com.lannooo.model;
 public class UltrasonicFmcwConfig {
     private boolean enabled = true;
     private String mode = "fmcw";
+    private String routePreset = "";
     private int sampleRateHz = 48000;
     private double startFreqHz = 18000.0;
     private double endFreqHz = 21000.0;
@@ -26,6 +27,14 @@ public class UltrasonicFmcwConfig {
 
     public void setMode(String mode) {
         this.mode = mode;
+    }
+
+    public String getRoutePreset() {
+        return routePreset;
+    }
+
+    public void setRoutePreset(String routePreset) {
+        this.routePreset = routePreset;
     }
 
     public int getSampleRateHz() {

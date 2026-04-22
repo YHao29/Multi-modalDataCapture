@@ -35,6 +35,9 @@ public class NettyService {
     @Autowired
     private ShellHelper shellHelper;
 
+    @Autowired
+    private UltrasonicCaptureService ultrasonicCaptureService;
+
     private ChannelFuture future;
     private NioEventLoopGroup boss;
     private NioEventLoopGroup worker;
@@ -54,7 +57,7 @@ public class NettyService {
                         pipeline.addLast(new LengthFieldBasedFrameDecoder(4096, 8, 4, 0, 0));
                         pipeline.addLast(new ServerEncoder());
                         pipeline.addLast(new ServerDecoder());
-                        pipeline.addLast(new ServerHandler(asyncService, deviceManager, shellHelper));
+                        pipeline.addLast(new ServerHandler(asyncService, deviceManager, ultrasonicCaptureService, shellHelper));
                     }
                 });
         try {

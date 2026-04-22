@@ -4,6 +4,7 @@ import com.lannooo.common.Utils;
 import com.lannooo.device.DeviceManager;
 import com.lannooo.device.UploadingFileItem;
 import com.lannooo.service.AsyncService;
+import com.lannooo.service.UltrasonicCaptureService;
 import com.lannooo.shell.ShellHelper;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -19,15 +20,18 @@ public class ServerHandler extends SimpleChannelInboundHandler<Message> {
 
     private final AsyncService asyncService;
     private final DeviceManager deviceManager;
+    private final UltrasonicCaptureService ultrasonicCaptureService;
     private final ShellHelper shellHelper;
     private final Map<String, RequestHandler> requestHandlers = Map.of(
             "register", this::handleRegisterRequest,
-            "upload", this::handleUploadFileRequest
+            "upload", this::handleUploadFileRequest,
+            "route_status", this::handleRouteStatusRequest
     );
 
-    public ServerHandler(AsyncService asyncService, DeviceManager deviceManager, ShellHelper shellHelper) {
+    public ServerHandler(AsyncService asyncService, DeviceManager deviceManager, UltrasonicCaptureService ultrasonicCaptureService, ShellHelper shellHelper) {
         this.asyncService = asyncService;
         this.deviceManager = deviceManager;
+        this.ultrasonicCaptureService = ultrasonicCaptureService;
         this.shellHelper = shellHelper;
     }
 
@@ -74,6 +78,10 @@ public class ServerHandler extends SimpleChannelInboundHandler<Message> {
         Map<String, Object> data = request.getData();
         deviceManager.addUploadingFile(ctx, data);
         writeShortResponse(ctx, "Ready to receive chunks");
+    }
+
+    private void handleRouteStatusRequest(ChannelHandlerContext ctx, MessageRequest request) {
+        ultrasonicCaptureService.updateRouteStatus(deviceManager.uniqueKey(ctx), request.getData());
     }
 
     private void writeShortResponse(ChannelHandlerContext ctx, String OK) {

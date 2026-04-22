@@ -85,6 +85,23 @@ classdef UltrasonicAudioClientV2 < handle
             end
         end
 
+        function response = preflightRoute(obj, deviceId, routePreset)
+            if nargin < 3 || isempty(routePreset)
+                response = struct('status', 'success', 'route_preset', '', 'message', 'default route');
+                return;
+            end
+            if nargin < 2 || isempty(deviceId)
+                deviceId = 'ALL';
+            end
+
+            url = sprintf('%s/api/ultrasonic/route/preflight', obj.serverUrl);
+            payload = struct('deviceId', deviceId, 'routePreset', routePreset);
+            response = webwrite(url, payload, UltrasonicAudioClientV2.jsonOptions(obj.timeout));
+            if ~(isfield(response, 'status') && strcmp(response.status, 'success'))
+                error('Ultrasonic route preflight failed.');
+            end
+        end
+
         function response = startUltrasonicCapture(obj, sceneId, durationSeconds, captureOptions)
             if nargin < 4 || isempty(captureOptions)
                 captureOptions = struct();
@@ -175,6 +192,9 @@ classdef UltrasonicAudioClientV2 < handle
                 if isfield(status, 'capturing')
                     capturing = logical(status.capturing);
                 end
+                if UltrasonicAudioClientV2.hasRouteBindingFailed(status)
+                    return;
+                end
 
                 if ~isempty(uploadedFile) && ~capturing
                     ok = true;
@@ -214,6 +234,16 @@ classdef UltrasonicAudioClientV2 < handle
             [~, newestIdx] = max([matches.datenum]);
             outputFile = fullfile(matches(newestIdx).folder, matches(newestIdx).name);
         end
+
+        function failed = hasRouteBindingFailed(status)
+            failed = false;
+            if ~isstruct(status) || ~isfield(status, 'state') || ~isstruct(status.state)
+                return;
+            end
+            if isfield(status.state, 'route_binding_status')
+                failed = strcmpi(string(status.state.route_binding_status), "failed");
+            end
+        end
     end
 
     methods (Static, Access = private)
@@ -240,6 +270,7 @@ classdef UltrasonicAudioClientV2 < handle
             cfg = struct( ...
                 'enabled', true, ...
                 'mode', 'fmcw', ...
+                'routePreset', '', ...
                 'sampleRateHz', 48000, ...
                 'startFreqHz', 20000.0, ...
                 'endFreqHz', 22000.0, ...

@@ -7,6 +7,7 @@ import com.lannooo.audiocenter.tool.AppUtil;
 
 import java.io.File;
 import java.nio.file.Paths;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
@@ -21,13 +22,17 @@ public class ClientAudioHandler extends AbstractAudioHandler {
     private Channel remoteChannel;
     private String remoteKey;
     private final FileUploadManager fileUploadManager;
+    private final RoutePresetManager routePresetManager;
     private UltrasonicConfig ultrasonicConfig = new UltrasonicConfig();
     private UltrasonicConfig manualUltrasonicConfig = new UltrasonicConfig();
     private boolean manualOverrideEnabled = false;
+    private RoutePresetManager.PreparedRoute preparedRoute;
 
     public ClientAudioHandler(Context context, ExecutorService executor) {
         super(context, executor);
         this.fileUploadManager = new FileUploadManager();
+        this.routePresetManager = new RoutePresetManager(context);
+        this.preparedRoute = RoutePresetManager.PreparedRoute.defaultRoute(routePresetManager.getDeviceIdentitySummary());
     }
 
     public void setUltrasonicConfig(UltrasonicConfig ultrasonicConfig) {
@@ -61,17 +66,20 @@ public class ClientAudioHandler extends AbstractAudioHandler {
         File audioFile = new File(baseDir, outputFile);
         if (isCustom) {
             int sampleRate = this.enableUltrasonic ? ultrasonicConfig.getSampleRateHz() : AudioConstants.AUDIO_DEFAULT_SAMPLE_RATE;
-            recorder = new CustomAudioRecorder(this, audioFile, audioSource, sampleRate);
+            recorder = new CustomAudioRecorder(this, audioFile, audioSource, sampleRate, preparedRoute);
         } else {
+            if (preparedRoute.getOutputDevice() != null || preparedRoute.getInputDevice() != null) {
+                throw new IllegalStateException("Physical route presets require custom recorder mode.");
+            }
             recorder = new SimpleAudioRecorder(this, audioFile, audioSource, durationMs);
         }
         recorder.setListener(listener);
 
         if (this.enableUltrasonic) {
             if ("fmcw".equalsIgnoreCase(ultrasonicConfig.getMode())) {
-                player = new FmcwPlayer(ultrasonicConfig, duration);
+                player = new FmcwPlayer(ultrasonicConfig, duration, preparedRoute);
             } else {
-                player = new FrequencyPlayer(this, ultrasonicConfig.getStartFreqHz(), duration);
+                player = new FrequencyPlayer(this, ultrasonicConfig.getStartFreqHz(), duration, preparedRoute);
             }
             player.setListener(listener);
         }
@@ -114,5 +122,50 @@ public class ClientAudioHandler extends AbstractAudioHandler {
     public void clearServerChannel() {
         this.remoteChannel = null;
         this.remoteKey = null;
+    }
+
+    public RoutePresetManager.PreparedRoute prepareRoute(String routePreset) {
+        this.preparedRoute = routePresetManager.prepareRoute(routePreset);
+        return preparedRoute;
+    }
+
+    public void playCaptureStartBeep() throws InterruptedException {
+        routePresetManager.playCaptureStartCue(preparedRoute);
+    }
+
+    public Map<String, Object> buildRegisterRouteInfo() {
+        return new LinkedHashMap<>(routePresetManager.buildRegisterRouteInfo());
+    }
+
+    public String getRoutePresetName() {
+        return routePresetManager.getRoutePresetName();
+    }
+
+    public String getRouteCalibrationStatus() {
+        return routePresetManager.getCalibrationStatus();
+    }
+
+    public String getRouteDiagnosticsText() {
+        return routePresetManager.describeAvailableDevices();
+    }
+
+    public String getSavedRouteOutputDeviceId() {
+        return routePresetManager.getSavedOutputDeviceId();
+    }
+
+    public String getSavedRouteInputDeviceId() {
+        return routePresetManager.getSavedInputDeviceId();
+    }
+
+    public String getRouteDeviceIdentitySummary() {
+        return routePresetManager.getDeviceIdentitySummary();
+    }
+
+    public void saveRouteCalibration(String outputDeviceId, String inputDeviceId) {
+        routePresetManager.saveCalibration(outputDeviceId, inputDeviceId);
+    }
+
+    public void applyPreparedInputRoute(android.media.AudioRecord audioRecord, RoutePresetManager.PreparedRoute preparedRoute) {
+        routePresetManager.applyPreferredInput(audioRecord, preparedRoute);
     }
 }

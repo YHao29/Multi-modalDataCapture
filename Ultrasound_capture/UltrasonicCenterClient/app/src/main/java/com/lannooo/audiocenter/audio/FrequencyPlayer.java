@@ -16,6 +16,7 @@ public class FrequencyPlayer implements AudioPlayer {
     private final ClientAudioHandler audioHandler;
     private final double frequency;
     private final double duration;
+    private final RoutePresetManager.PreparedRoute preparedRoute;
     private AudioTrack audioTrack;
 
     private final AtomicReference<PlayerStatus> status = new AtomicReference<>(PlayerStatus.INIT);
@@ -23,10 +24,12 @@ public class FrequencyPlayer implements AudioPlayer {
 
     public FrequencyPlayer(ClientAudioHandler audioHandler,
                            double frequency,
-                           double duration) {
+                           double duration,
+                           RoutePresetManager.PreparedRoute preparedRoute) {
         this.audioHandler = audioHandler;
         this.frequency = frequency;
         this.duration = duration;
+        this.preparedRoute = preparedRoute;
 
         configurePlayer();
     }
@@ -55,6 +58,9 @@ public class FrequencyPlayer implements AudioPlayer {
                 .setBufferSizeInBytes(samples.length * 2)
                 .setTransferMode(AudioTrack.MODE_STATIC)
                 .build();
+        if (preparedRoute != null && preparedRoute.getOutputDevice() != null && !audioTrack.setPreferredDevice(preparedRoute.getOutputDevice())) {
+            throw new IllegalStateException("Failed to bind preferred frequency output device.");
+        }
         audioTrack.write(samples, 0, samples.length);
         status.set(PlayerStatus.READY);
     }

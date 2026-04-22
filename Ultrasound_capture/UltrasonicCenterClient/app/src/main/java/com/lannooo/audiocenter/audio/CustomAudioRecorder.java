@@ -25,6 +25,7 @@ public class CustomAudioRecorder implements AudioRecorder {
     private final int sampleRate;
     private final int channels;
     private final int minBufferSize;
+    private final RoutePresetManager.PreparedRoute preparedRoute;
 
     private AudioRecord audioRecord;
     private final AtomicReference<RecorderStatus> status = new AtomicReference<>(RecorderStatus.INIT);
@@ -33,7 +34,8 @@ public class CustomAudioRecorder implements AudioRecorder {
     public CustomAudioRecorder(ClientAudioHandler audioHandler,
                                File file,
                                int audioSource,
-                               int sampleRate) {
+                               int sampleRate,
+                               RoutePresetManager.PreparedRoute preparedRoute) {
         this.audioHandler = audioHandler;
         this.outputFile = file;
         this.audioSource = audioSource;
@@ -42,6 +44,7 @@ public class CustomAudioRecorder implements AudioRecorder {
         this.sampleRate = sampleRate;
         this.channels = AudioConstants.AUDIO_DEFAULT_CHANNEL;
         this.minBufferSize = AudioRecord.getMinBufferSize(sampleRate, getChannelMask(channels), encoding);
+        this.preparedRoute = preparedRoute;
         configureRecorder();
     }
 
@@ -75,6 +78,7 @@ public class CustomAudioRecorder implements AudioRecorder {
             builder.setContext(audioHandler.context);
         }
         audioRecord = builder.build();
+        audioHandler.applyPreparedInputRoute(audioRecord, preparedRoute);
         status.set(RecorderStatus.READY);
     }
 

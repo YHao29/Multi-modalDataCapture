@@ -5,6 +5,7 @@ import java.util.Map;
 public class UltrasonicConfig {
     private boolean enabled = true;
     private String mode = "fmcw";
+    private String routePreset = "";
     private int sampleRateHz = AudioConstants.AUDIO_SAMPLE_RATE_48000;
     private double startFreqHz = 20000.0;
     private double endFreqHz = 22000.0;
@@ -21,6 +22,7 @@ public class UltrasonicConfig {
         }
         config.enabled = readBoolean(commands, "ultra", true);
         config.mode = readString(commands, "ultra_mode", config.mode);
+        config.routePreset = readString(commands, "ultra_route_preset", config.routePreset);
         config.sampleRateHz = readInt(commands, "ultra_sample_rate_hz", config.sampleRateHz);
         config.startFreqHz = readDouble(commands, "ultra_start_freq_hz", config.startFreqHz);
         config.endFreqHz = readDouble(commands, "ultra_end_freq_hz", config.endFreqHz);
@@ -55,7 +57,10 @@ public class UltrasonicConfig {
     }
 
     public UltrasonicConfig copy() {
-        return manual(enabled, sampleRateHz, startFreqHz, endFreqHz, chirpDurationMs, idleDurationMs, amplitude, windowType, repeat);
+        UltrasonicConfig config = manual(enabled, sampleRateHz, startFreqHz, endFreqHz, chirpDurationMs, idleDurationMs, amplitude, windowType, repeat);
+        config.routePreset = routePreset;
+        config.mode = mode;
+        return config;
     }
 
     private static int readInt(Map<String, Object> commands, String key, int defaultValue) {
@@ -82,6 +87,8 @@ public class UltrasonicConfig {
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
     public String getMode() { return mode; }
     public void setMode(String mode) { this.mode = mode; }
+    public String getRoutePreset() { return routePreset; }
+    public void setRoutePreset(String routePreset) { this.routePreset = routePreset; }
     public int getSampleRateHz() { return sampleRateHz; }
     public void setSampleRateHz(int sampleRateHz) { this.sampleRateHz = sampleRateHz; }
     public double getStartFreqHz() { return startFreqHz; }

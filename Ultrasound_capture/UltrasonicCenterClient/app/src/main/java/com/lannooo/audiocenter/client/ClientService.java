@@ -159,6 +159,7 @@ public class ClientService extends Service {
         try {
             ChannelFuture channelFuture = bootstrap.connect(new InetSocketAddress(ip, port));
             channel = channelFuture.sync().channel();
+            sendRegisterMessage();
             return true;
         } catch (Exception e) {
             Log.e(TAG, "Client connect failed: " + e.getMessage(), e);
@@ -213,7 +214,7 @@ public class ClientService extends Service {
 
     private void sendRegisterMessage() throws InterruptedException {
         if (isChannelReady()) {
-            Message message = new Message(Message.MessageType.REQUEST, MessageUtil.registerRequest().getBytes());
+            Message message = new Message(Message.MessageType.REQUEST, MessageUtil.registerRequest(audioHandler.buildRegisterRouteInfo()).getBytes());
             channel.writeAndFlush(message).sync();
             if (listener != null) {
                 listener.onMessageReceived(true, message.getType(), message.toString());
@@ -252,6 +253,36 @@ public class ClientService extends Service {
             if (audioHandler != null) {
                 UltrasonicConfig config = UltrasonicConfig.manual(true, sampleRateHz, startFreqHz, endFreqHz, chirpDurationMs, idleDurationMs, amplitude, windowType, repeat);
                 audioHandler.setManualUltrasonicConfig(config, enabled);
+            }
+        }
+
+        public String getRoutePresetName() {
+            return audioHandler == null ? "" : audioHandler.getRoutePresetName();
+        }
+
+        public String getRouteCalibrationStatus() {
+            return audioHandler == null ? "unknown" : audioHandler.getRouteCalibrationStatus();
+        }
+
+        public String getRouteDiagnosticsText() {
+            return audioHandler == null ? "" : audioHandler.getRouteDiagnosticsText();
+        }
+
+        public String getSavedRouteOutputDeviceId() {
+            return audioHandler == null ? "" : audioHandler.getSavedRouteOutputDeviceId();
+        }
+
+        public String getSavedRouteInputDeviceId() {
+            return audioHandler == null ? "" : audioHandler.getSavedRouteInputDeviceId();
+        }
+
+        public String getRouteDeviceIdentitySummary() {
+            return audioHandler == null ? "" : audioHandler.getRouteDeviceIdentitySummary();
+        }
+
+        public void saveRouteCalibration(String outputDeviceId, String inputDeviceId) {
+            if (audioHandler != null) {
+                audioHandler.saveRouteCalibration(outputDeviceId, inputDeviceId);
             }
         }
     }

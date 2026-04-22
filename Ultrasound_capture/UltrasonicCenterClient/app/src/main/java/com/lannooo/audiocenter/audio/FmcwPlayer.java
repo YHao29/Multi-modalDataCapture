@@ -12,13 +12,15 @@ public class FmcwPlayer implements AudioPlayer {
 
     private final UltrasonicConfig config;
     private final double durationSeconds;
+    private final RoutePresetManager.PreparedRoute preparedRoute;
     private AudioTrack audioTrack;
     private final AtomicReference<PlayerStatus> status = new AtomicReference<>(PlayerStatus.INIT);
     private AudioEventListener listener;
 
-    public FmcwPlayer(UltrasonicConfig config, double durationSeconds) {
+    public FmcwPlayer(UltrasonicConfig config, double durationSeconds, RoutePresetManager.PreparedRoute preparedRoute) {
         this.config = config;
         this.durationSeconds = durationSeconds;
+        this.preparedRoute = preparedRoute;
         configurePlayer();
     }
 
@@ -37,6 +39,9 @@ public class FmcwPlayer implements AudioPlayer {
                 .setBufferSizeInBytes(samples.length * 2)
                 .setTransferMode(AudioTrack.MODE_STATIC)
                 .build();
+        if (preparedRoute != null && preparedRoute.getOutputDevice() != null && !audioTrack.setPreferredDevice(preparedRoute.getOutputDevice())) {
+            throw new IllegalStateException("Failed to bind preferred ultrasonic output device.");
+        }
         audioTrack.write(samples, 0, samples.length);
         status.set(PlayerStatus.READY);
     }

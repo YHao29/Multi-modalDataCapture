@@ -17,6 +17,12 @@ data class AudioCenterUiState(
     val amplitude: String = "0.30",
     val windowType: String = "hann",
     val repeatChirp: Boolean = true,
+    val routePresetName: String = "",
+    val routeDeviceSummary: String = "",
+    val routeCalibrationStatus: String = "unknown",
+    val routeOutputDeviceId: String = "",
+    val routeInputDeviceId: String = "",
+    val routeDiagnosticsText: String = "",
 )
 
 data class MessageRecord(

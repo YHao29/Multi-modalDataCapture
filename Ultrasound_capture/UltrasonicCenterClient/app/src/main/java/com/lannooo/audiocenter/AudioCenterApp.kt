@@ -206,6 +206,55 @@ fun UltrasonicConfigPart(
 }
 
 @Composable
+fun RouteCalibrationPart(
+    state: AudioCenterUiState,
+    onOutputIdChange: (String) -> Unit,
+    onInputIdChange: (String) -> Unit,
+    onRefreshClick: () -> Unit,
+    onSaveClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(modifier = modifier.padding(vertical = 8.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text("Mate 40 Pro Route Calibration", style = MaterialTheme.typography.titleMedium)
+            Text("Preset: ${state.routePresetName.ifBlank { "mate40pro_bottom_speaker_bottom_mic" }}", style = MaterialTheme.typography.bodySmall)
+            Text("Device: ${state.routeDeviceSummary.ifBlank { "Unavailable" }}", style = MaterialTheme.typography.bodySmall)
+            Text("Status: ${state.routeCalibrationStatus}", style = MaterialTheme.typography.bodySmall)
+            Spacer(modifier = Modifier.size(8.dp))
+            TextField(
+                value = state.routeOutputDeviceId,
+                onValueChange = onOutputIdChange,
+                label = { Text("Bottom speaker device id") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.size(8.dp))
+            TextField(
+                value = state.routeInputDeviceId,
+                onValueChange = onInputIdChange,
+                label = { Text("Bottom microphone device id") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.size(8.dp))
+            Row {
+                OutlinedButton(onClick = onRefreshClick, modifier = Modifier.weight(1f)) {
+                    Text("Refresh Devices")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Button(onClick = onSaveClick, modifier = Modifier.weight(1f)) {
+                    Text("Save Calibration")
+                }
+            }
+            Spacer(modifier = Modifier.size(8.dp))
+            Text(state.routeDiagnosticsText.ifBlank { "No device diagnostics yet." }, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
 fun ConnectDialog(msg: String, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     AlertDialog(onDismissRequest = onDismiss, confirmButton = { Button(onClick = onDismiss, modifier = modifier) { Text(text = stringResource(R.string.connect_alert_confirm)) } }, title = { Text(text = stringResource(R.string.connect_alert_title)) }, text = { Text(text = stringResource(R.string.connect_alert_message, msg)) }, modifier = modifier)
 }
@@ -233,6 +282,14 @@ fun AudioCenterApp(acViewModel: AudioCenterViewModel = viewModel()) {
                     onWindowTypeChange = { acViewModel.updateWindowType(it) },
                     onRepeatChange = { acViewModel.updateRepeatChirp(it) },
                     onApplyClick = { acViewModel.applyUltrasonicConfig() },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                RouteCalibrationPart(
+                    state = acUiState,
+                    onOutputIdChange = { acViewModel.updateRouteOutputDeviceId(it) },
+                    onInputIdChange = { acViewModel.updateRouteInputDeviceId(it) },
+                    onRefreshClick = { acViewModel.refreshRouteDiagnostics() },
+                    onSaveClick = { acViewModel.saveRouteCalibration() },
                     modifier = Modifier.fillMaxWidth()
                 )
                 ActionExtraPart(acUiState.networkStatus, onSendClick = { acViewModel.sendTestMessage() }, modifier = Modifier.fillMaxWidth())

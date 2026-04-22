@@ -33,6 +33,25 @@ public class UltrasonicController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/route/preflight")
+    public ResponseEntity<Map<String, Object>> preflightRoute(@RequestBody(required = false) Map<String, Object> request) {
+        String deviceId = request == null ? "ALL" : String.valueOf(request.getOrDefault("deviceId", "ALL"));
+        String routePreset = request == null ? "" : String.valueOf(request.getOrDefault("routePreset", ""));
+
+        Map<String, Object> result = ultrasonicCaptureService.preflightRoute(deviceId, routePreset);
+        Map<String, Object> response = new LinkedHashMap<>();
+        if (Boolean.TRUE.equals(result.get("ok"))) {
+            response.put("status", "success");
+            response.putAll(result);
+            return ResponseEntity.ok(response);
+        }
+
+        response.put("status", "error");
+        response.putAll(result);
+        response.put("message", result.getOrDefault("message", "route preflight failed"));
+        return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).body(response);
+    }
+
     @PostMapping("/capture/stop")
     public ResponseEntity<Map<String, Object>> stopCapture(@RequestParam(defaultValue = "ALL") String deviceId) {
         Map<String, Object> response = new LinkedHashMap<>();

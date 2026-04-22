@@ -8,8 +8,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Collections;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -71,12 +73,91 @@ public class UltrasonicCaptureService {
             state.put("output", request.getOutput());
             state.put("mode", request.getMode());
             state.put("ultrasonic", cfg);
+            state.put("route_requested_preset", cfg.getRoutePreset());
+            state.put("route_applied_preset", "");
+            state.put("route_binding_status", cfg.getRoutePreset() == null || cfg.getRoutePreset().isEmpty() ? "default" : "pending");
+            state.put("route_output_binding", "");
+            state.put("route_input_binding", "");
+            state.put("route_error_message", "");
+            String routeModelKey = targetKeys.iterator().next();
+            state.put("route_device_model", deviceManager.getRouteCapabilitySnapshot(routeModelKey).getOrDefault("model", "Unknown"));
             state.put("started_at_ms", System.currentTimeMillis());
             state.put("session_id", sessionId);
             state.put("completion_reason", "running");
             scheduleAutoClear(sessionId, request.getDurationSeconds());
         }
         return success;
+    }
+
+    public synchronized Map<String, Object> preflightRoute(String deviceId, String routePreset) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("device_id", deviceId);
+        result.put("route_preset", routePreset);
+        if (routePreset == null || routePreset.trim().isEmpty()) {
+            result.put("ok", true);
+            result.put("message", "default route");
+            result.put("capability", Collections.emptyMap());
+            return result;
+        }
+
+        Set<String> targetKeys = resolveTargetKeys(deviceId);
+        if (targetKeys.isEmpty()) {
+            result.put("ok", false);
+            result.put("message", "device_not_available");
+            return result;
+        }
+
+        String resolvedKey = targetKeys.iterator().next();
+        Map<String, Object> capability = deviceManager.getRouteCapabilitySnapshot(resolvedKey);
+        result.put("capability", capability);
+        Object presetsObj = capability.get("supported_route_presets");
+        boolean supported = false;
+        if (presetsObj instanceof List) {
+            for (Object preset : (List<?>) presetsObj) {
+                if (routePreset.equals(String.valueOf(preset))) {
+                    supported = true;
+                    break;
+                }
+            }
+        }
+
+        if (!supported) {
+            result.put("ok", false);
+            result.put("message", "route_preset_not_supported");
+            return result;
+        }
+
+        result.put("ok", true);
+        result.put("message", "route preflight passed");
+        return result;
+    }
+
+    public synchronized void updateRouteStatus(String deviceId, Map<String, Object> routeState) {
+        if (routeState == null || routeState.isEmpty()) {
+            return;
+        }
+
+        Object outputName = routeState.get("output_name");
+        if (outputName != null && currentOutput != null && !currentOutput.equals(String.valueOf(outputName))) {
+            return;
+        }
+        if (deviceId != null) {
+            state.put("device_id", deviceId);
+        }
+
+        copyRouteField(routeState, "requested_preset", "route_requested_preset");
+        copyRouteField(routeState, "applied_preset", "route_applied_preset");
+        copyRouteField(routeState, "binding_status", "route_binding_status");
+        copyRouteField(routeState, "output_binding", "route_output_binding");
+        copyRouteField(routeState, "input_binding", "route_input_binding");
+        copyRouteField(routeState, "error_message", "route_error_message");
+        copyRouteField(routeState, "device_model", "route_device_model");
+        state.put("route_updated_at_ms", System.currentTimeMillis());
+
+        Object bindingStatus = routeState.get("binding_status");
+        if (bindingStatus != null && "failed".equalsIgnoreCase(String.valueOf(bindingStatus))) {
+            finalizeCaptureState("route_binding_failed");
+        }
     }
 
     public synchronized boolean stopCapture(String deviceId) {
@@ -136,6 +217,12 @@ public class UltrasonicCaptureService {
         }
         state.put("completed_at_ms", System.currentTimeMillis());
         state.put("completion_reason", reason);
+    }
+
+    private void copyRouteField(Map<String, Object> routeState, String sourceKey, String targetKey) {
+        if (routeState.containsKey(sourceKey)) {
+            state.put(targetKey, routeState.get(sourceKey));
+        }
     }
 
     private Set<String> resolveTargetKeys(String deviceId) {

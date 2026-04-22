@@ -62,7 +62,7 @@ public class RemoteAudioService {
         Channel ch = Objects.requireNonNull(channelManager.getChannel(key));
         MessageRequest request = new MessageRequest("capture");
         request.put("action", action);
-        request.put("ultra", true);
+            request.put("ultra", true);
         if ("start".equalsIgnoreCase(action)) {
             request.put("mode", mode);
             request.put("output", output);
@@ -71,6 +71,7 @@ public class RemoteAudioService {
             request.put("forward", forward);
             request.put("delete", postDelete);
             request.put("ultra_mode", config.getMode());
+            request.put("ultra_route_preset", config.getRoutePreset());
             request.put("ultra_sample_rate_hz", config.getSampleRateHz());
             request.put("ultra_start_freq_hz", config.getStartFreqHz());
             request.put("ultra_end_freq_hz", config.getEndFreqHz());
