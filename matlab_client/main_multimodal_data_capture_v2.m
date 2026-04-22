@@ -103,6 +103,7 @@ captureOptions.device_id = device_id;
 captureOptions.mode = 'pro';
 captureOptions.server_audio_root = ultrasonic_server_audio_root;
 captureOptions.ultrasonic = ultrasonic_config;
+captureOptions.delete_after_forward = true;
 captureOptions.upload_timeout_seconds = max(20, capture_duration + 10);
 captureOptions.radar_stop_margin_seconds = 1.0;
 

@@ -443,6 +443,7 @@ E:\ScreenDataCapture\Multimodal_data_capture\Ultrasound_capture\UltrasonicCenter
 ```
 
 V2 会在上传完成后自动拷贝一份到被试目录。
+当前 V2 默认会在上传成功后删除手机端本地录音文件，手机端录音目录不作为最终归档目录。
 
 ### 8.2 雷达文件
 

@@ -160,7 +160,7 @@ function captureOptions = applyDefaultCaptureOptions(captureOptions, sceneId)
         captureOptions.forward = true;
     end
     if ~isfield(captureOptions, 'delete_after_forward')
-        captureOptions.delete_after_forward = false;
+        captureOptions.delete_after_forward = true;
     end
     if ~isfield(captureOptions, 'output_name') || isempty(captureOptions.output_name)
         captureOptions.output_name = [sceneId '.wav'];

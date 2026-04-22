@@ -41,3 +41,5 @@ V2 metadata writes:
 - `capture_system.audio_chain_version = "V2"`
 
 It also persists the ultrasonic FMCW configuration and the relative server-side uploaded audio path when available.
+
+The current V2 flow also requests post-upload deletion on the Android client, so the phone-side local recording is removed after a successful forward/upload.

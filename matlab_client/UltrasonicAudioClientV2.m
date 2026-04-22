@@ -231,7 +231,7 @@ classdef UltrasonicAudioClientV2 < handle
             payload.durationSeconds = 5;
             payload.process = false;
             payload.forward = true;
-            payload.deleteAfterForward = false;
+            payload.deleteAfterForward = true;
             payload.mode = 'pro';
             payload.ultrasonic = UltrasonicAudioClientV2.defaultUltrasonicConfig();
         end
