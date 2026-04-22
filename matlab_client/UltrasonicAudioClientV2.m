@@ -108,6 +108,11 @@ classdef UltrasonicAudioClientV2 < handle
             end
 
             payload = UltrasonicAudioClientV2.defaultCapturePayload();
+            selectedMode = payload.mode;
+            if isfield(captureOptions, 'mode') && ~isempty(captureOptions.mode)
+                selectedMode = char(string(captureOptions.mode));
+            end
+            payload.mode = selectedMode;
 
             if isfield(captureOptions, 'device_id')
                 payload.deviceId = obj.resolveDeviceId(captureOptions.device_id);
@@ -118,15 +123,9 @@ classdef UltrasonicAudioClientV2 < handle
             if isfield(captureOptions, 'output_name') && ~isempty(captureOptions.output_name)
                 outputName = captureOptions.output_name;
             else
-                outputName = [sceneId '.wav'];
+                outputName = [sceneId UltrasonicAudioClientV2.outputExtensionForMode(payload.mode)];
             end
-            if numel(outputName) < 4 || ~strcmpi(outputName(end-3:end), '.wav')
-                outputName = [outputName '.wav'];
-            end
-
-            if isfield(captureOptions, 'mode') && ~isempty(captureOptions.mode)
-                payload.mode = captureOptions.mode;
-            end
+            outputName = UltrasonicAudioClientV2.normalizeOutputName(outputName, payload.mode);
             if isfield(captureOptions, 'process')
                 payload.process = logical(captureOptions.process);
             end
@@ -148,6 +147,8 @@ classdef UltrasonicAudioClientV2 < handle
             response = webwrite(url, payload, UltrasonicAudioClientV2.jsonOptions(max(20, obj.timeout)));
             response.request_device_id = payload.deviceId;
             response.request_output = payload.output;
+            response.request_capture_mode = payload.mode;
+            response.request_audio_format = UltrasonicAudioClientV2.audioFormatForMode(payload.mode);
             response.request_ultrasonic = payload.ultrasonic;
         end
 
@@ -264,6 +265,37 @@ classdef UltrasonicAudioClientV2 < handle
             payload.deleteAfterForward = true;
             payload.mode = 'pro';
             payload.ultrasonic = UltrasonicAudioClientV2.defaultUltrasonicConfig();
+        end
+
+        function ext = outputExtensionForMode(modeName)
+            if strcmpi(char(string(modeName)), 'simple')
+                ext = '.m4a';
+            else
+                ext = '.wav';
+            end
+        end
+
+        function formatName = audioFormatForMode(modeName)
+            ext = UltrasonicAudioClientV2.outputExtensionForMode(modeName);
+            formatName = ext(2:end);
+        end
+
+        function outputName = normalizeOutputName(outputName, modeName)
+            ext = UltrasonicAudioClientV2.outputExtensionForMode(modeName);
+            outputName = char(string(outputName));
+            if endsWith(lower(outputName), lower(ext))
+                return;
+            end
+
+            lastSlash = find(outputName == '/' | outputName == '\', 1, 'last');
+            lastDot = find(outputName == '.', 1, 'last');
+            if isempty(lastSlash)
+                lastSlash = 0;
+            end
+            if ~isempty(lastDot) && lastDot > lastSlash
+                outputName = outputName(1:lastDot - 1);
+            end
+            outputName = [outputName ext];
         end
 
         function cfg = defaultUltrasonicConfig()

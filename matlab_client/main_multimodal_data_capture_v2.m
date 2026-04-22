@@ -19,6 +19,12 @@ PHONE_STARTUP_DELAY = 2200;
 AUDIO_START_OFFSET = -1000;
 RADAR_START_OFFSET = 1000;
 
+% Android recorder implementation:
+% 'pro'    -> AudioRecord + WAV. Required for physical route presets.
+% 'simple' -> MediaRecorder + M4A. Useful for isolating Mate 40 Pro voice
+%             capture issues without the custom WAV path.
+AUDIO_CAPTURE_MODE = 'simple';
+
 % Recording source selection on Android:
 % true  -> force standard MIC path
 % false -> prefer UNPROCESSED, fallback to VOICE_RECOGNITION
@@ -51,6 +57,17 @@ ultrasonic_config = struct( ...
 fprintf('========== Multimodal Capture V2 ==========\n');
 fprintf('Data root: %s\n', data_root_path);
 fprintf('Ultrasonic server root: %s\n', ultrasonic_server_audio_root);
+
+[audio_capture_mode, audio_output_ext] = normalizeAudioCaptureMode(AUDIO_CAPTURE_MODE);
+if strcmpi(audio_capture_mode, 'simple')
+    ultrasonic_config.enabled = false;
+    ultrasonic_config.routePreset = '';
+    fprintf('Audio capture mode: simple (M4A diagnostic path)\n');
+    fprintf('Ultrasonic playback disabled in simple mode to isolate pure voice recording.\n');
+    fprintf('Route preset disabled in simple mode because MediaRecorder cannot bind a specific physical route.\n');
+else
+    fprintf('Audio capture mode: pro (WAV custom path)\n');
+end
 
 if ~exist(data_root_path, 'dir')
     error('Data root does not exist: %s', data_root_path);
@@ -113,7 +130,7 @@ fclose(log_fid);
 %% Capture loop
 captureOptions = struct();
 captureOptions.device_id = device_id;
-captureOptions.mode = 'pro';
+captureOptions.mode = audio_capture_mode;
 captureOptions.process = AUDIO_ENABLE_PROCESSING;
 captureOptions.server_audio_root = ultrasonic_server_audio_root;
 captureOptions.ultrasonic = ultrasonic_config;
@@ -130,6 +147,7 @@ fprintf('Action scenes: %d\n', length(actionScenes));
 fprintf('Repeat count: %d\n', repeat_count);
 fprintf('Total captures planned: %d\n', length(actionScenes) * repeat_count);
 fprintf('Audio source mode: %s\n', ternaryText(AUDIO_ENABLE_PROCESSING, 'MIC', 'UNPROCESSED/VOICE_RECOGNITION'));
+fprintf('Audio recorder mode: %s\n', upper(audio_capture_mode));
 
 user_requested_exit = false;
 for scene_idx = 1:length(actionScenes)
@@ -163,7 +181,7 @@ for scene_idx = 1:length(actionScenes)
         sample_id = (scene_idx - 1) * repeat_count + repeat_idx;
         sceneId = sprintf('sample_%03d_%s_%s_%s', sample_id, ...
             selected_location.location_id, selected_sub_location.sub_location_id, scene.code);
-        captureOptions.output_name = [sceneId '.wav'];
+        captureOptions.output_name = [sceneId audio_output_ext];
 
         fprintf('Starting capture: %s\n', sceneId);
         [success, metadata] = syncCaptureV2(audioClient, [], sceneId, ...
@@ -361,6 +379,19 @@ function text = ternaryText(flag, trueText, falseText)
         text = trueText;
     else
         text = falseText;
+    end
+end
+
+function [modeName, fileExt] = normalizeAudioCaptureMode(rawMode)
+    modeName = lower(strtrim(char(string(rawMode))));
+    switch modeName
+        case 'simple'
+            fileExt = '.m4a';
+        case {'pro', 'custom'}
+            modeName = 'pro';
+            fileExt = '.wav';
+        otherwise
+            error('Unsupported AUDIO_CAPTURE_MODE: %s. Use ''pro'' or ''simple''.', rawMode);
     end
 end
 

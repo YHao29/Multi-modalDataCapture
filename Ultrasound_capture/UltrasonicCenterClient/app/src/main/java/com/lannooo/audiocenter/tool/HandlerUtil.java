@@ -12,9 +12,15 @@ public class HandlerUtil {
         if (!ext.startsWith(".")) {
             ext = "." + ext;
         }
-        if (!outputName.endsWith(ext)) {
-            outputName += ext;
+        if (outputName.endsWith(ext)) {
+            return outputName;
         }
-        return outputName;
+
+        int lastSlash = Math.max(outputName.lastIndexOf('/'), outputName.lastIndexOf('\\'));
+        int lastDot = outputName.lastIndexOf('.');
+        if (lastDot > lastSlash) {
+            outputName = outputName.substring(0, lastDot);
+        }
+        return outputName + ext;
     }
 }

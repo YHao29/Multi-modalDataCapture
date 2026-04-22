@@ -21,6 +21,10 @@ function [success, metadata] = syncCaptureV2(audioClient, radarObj, sceneId, dur
     metadata.device_id = captureOptions.device_id;
     metadata.ultrasonic_config = captureOptions.ultrasonic;
     metadata.route_requested_preset = safeRoutePreset(captureOptions.ultrasonic);
+    metadata.audio_capture_mode = captureOptions.mode;
+    metadata.audio_format = audioFormatFromFilename(captureOptions.output_name);
+    metadata.audio_sample_rate_hz = resolveAudioSampleRate(captureOptions);
+    metadata.audio_processing_enabled = logical(captureOptions.process);
     metadata.success_status = 'failed';
 
     try
@@ -80,6 +84,12 @@ function [success, metadata] = syncCaptureV2(audioClient, radarObj, sceneId, dur
                 else
                     metadata.audio_files = {captureOptions.output_name};
                 end
+                if isfield(captureResponse, 'request_capture_mode')
+                    metadata.audio_capture_mode = captureResponse.request_capture_mode;
+                end
+                if isfield(captureResponse, 'request_audio_format')
+                    metadata.audio_format = captureResponse.request_audio_format;
+                end
                 audioSent = true;
             end
 
@@ -130,7 +140,7 @@ function [success, metadata] = syncCaptureV2(audioClient, radarObj, sceneId, dur
         metadata.audio_files = {captureOptions.output_name};
         metadata.audio_server_file = uploadedFile;
         metadata.audio_server_relative_path = makeRelativePath(uploadedFile, captureOptions.server_audio_root);
-        fprintf('  [audio] archived WAV: %s\n', captureOptions.output_name);
+        fprintf('  [audio] archived file: %s\n', captureOptions.output_name);
 
         [radarOk, actualRadarFile, radarSizeMb] = validateRadarFile(radarFilepath);
         if ~radarOk
@@ -171,8 +181,9 @@ function captureOptions = applyDefaultCaptureOptions(captureOptions, sceneId)
         captureOptions.delete_after_forward = true;
     end
     if ~isfield(captureOptions, 'output_name') || isempty(captureOptions.output_name)
-        captureOptions.output_name = [sceneId '.wav'];
+        captureOptions.output_name = [sceneId audioExtensionForMode(captureOptions.mode)];
     end
+    captureOptions.output_name = normalizeAudioOutputName(captureOptions.output_name, captureOptions.mode);
     if ~isfield(captureOptions, 'server_audio_root')
         captureOptions.server_audio_root = '';
     end
@@ -256,6 +267,63 @@ function preset = safeRoutePreset(ultrasonicConfig)
     preset = '';
     if isstruct(ultrasonicConfig) && isfield(ultrasonicConfig, 'routePreset')
         preset = char(string(ultrasonicConfig.routePreset));
+    end
+end
+
+function ext = audioExtensionForMode(modeName)
+    if strcmpi(char(string(modeName)), 'simple')
+        ext = '.m4a';
+    else
+        ext = '.wav';
+    end
+end
+
+function outputName = normalizeAudioOutputName(outputName, modeName)
+    ext = audioExtensionForMode(modeName);
+    outputName = char(string(outputName));
+    if endsWith(lower(outputName), lower(ext))
+        return;
+    end
+
+    lastSlash = find(outputName == '/' | outputName == '\', 1, 'last');
+    lastDot = find(outputName == '.', 1, 'last');
+    if isempty(lastSlash)
+        lastSlash = 0;
+    end
+    if ~isempty(lastDot) && lastDot > lastSlash
+        outputName = outputName(1:lastDot - 1);
+    end
+    outputName = [outputName ext];
+end
+
+function formatName = audioFormatFromFilename(filename)
+    [~, ~, ext] = fileparts(char(string(filename)));
+    ext = lower(ext);
+    if startsWith(ext, '.')
+        ext = ext(2:end);
+    end
+    if isempty(ext)
+        formatName = 'wav';
+    else
+        formatName = ext;
+    end
+end
+
+function sampleRateHz = resolveAudioSampleRate(captureOptions)
+    if strcmpi(char(string(captureOptions.mode)), 'simple')
+        sampleRateHz = 44100;
+        return;
+    end
+
+    ultrasonicEnabled = false;
+    if isfield(captureOptions, 'ultrasonic') && isstruct(captureOptions.ultrasonic) && isfield(captureOptions.ultrasonic, 'enabled')
+        ultrasonicEnabled = logical(captureOptions.ultrasonic.enabled);
+    end
+
+    if ultrasonicEnabled && isfield(captureOptions.ultrasonic, 'sampleRateHz')
+        sampleRateHz = captureOptions.ultrasonic.sampleRateHz;
+    else
+        sampleRateHz = 44100;
     end
 end
 

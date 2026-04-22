@@ -76,7 +76,7 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
         % 音频参数（Android端超声波模式）
         ultrasonicConfig = getMetadataField(metadata, 'ultrasonic_config', struct());
         fullMetadata.audio_params = struct();
-        fullMetadata.audio_params.sample_rate = getMetadataField(ultrasonicConfig, 'sampleRateHz', 44100);  % Hz
+        fullMetadata.audio_params.sample_rate = getMetadataField(metadata, 'audio_sample_rate_hz', getMetadataField(ultrasonicConfig, 'sampleRateHz', 44100));  % Hz
         fullMetadata.audio_params.ultrasonic_freq = getMetadataField(ultrasonicConfig, 'startFreqHz', 20000);  % Hz
         fullMetadata.audio_params.start_freq_hz = getMetadataField(ultrasonicConfig, 'startFreqHz', 20000);
         fullMetadata.audio_params.end_freq_hz = getMetadataField(ultrasonicConfig, 'endFreqHz', 20000);
@@ -85,8 +85,10 @@ function saveMetadata(metadata, sceneInfo, staffCombo, subjectId, savePath, repe
         fullMetadata.audio_params.amplitude = getMetadataField(ultrasonicConfig, 'amplitude', 1.0);
         fullMetadata.audio_params.window_type = getMetadataField(ultrasonicConfig, 'windowType', 'unknown');
         fullMetadata.audio_params.repeat = getMetadataField(ultrasonicConfig, 'repeat', false);
-        fullMetadata.audio_params.format = 'wav';
+        fullMetadata.audio_params.format = getMetadataField(metadata, 'audio_format', inferAudioFormat(getMetadataField(metadata, 'audio_files', {}), 'wav'));
         fullMetadata.audio_params.mode = getMetadataField(ultrasonicConfig, 'mode', 'ultrasonic');
+        fullMetadata.audio_params.capture_mode = getMetadataField(metadata, 'audio_capture_mode', 'pro');
+        fullMetadata.audio_params.processing_enabled = getMetadataField(metadata, 'audio_processing_enabled', false);
         
         % 雷达参数
         fullMetadata.radar_params = struct();
@@ -181,5 +183,30 @@ function value = getMetadataField(structValue, fieldName, defaultValue)
         value = structValue.(fieldName);
     else
         value = defaultValue;
+    end
+end
+
+function formatName = inferAudioFormat(audioFiles, defaultValue)
+    if nargin < 2
+        defaultValue = 'wav';
+    end
+
+    if ischar(audioFiles) || isstring(audioFiles)
+        audioFiles = {char(string(audioFiles))};
+    end
+    if isempty(audioFiles)
+        formatName = defaultValue;
+        return;
+    end
+
+    [~, ~, ext] = fileparts(char(string(audioFiles{1})));
+    ext = lower(ext);
+    if startsWith(ext, '.')
+        ext = ext(2:end);
+    end
+    if isempty(ext)
+        formatName = defaultValue;
+    else
+        formatName = ext;
     end
 end
