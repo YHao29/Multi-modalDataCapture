@@ -19,6 +19,11 @@ PHONE_STARTUP_DELAY = 2200;
 AUDIO_START_OFFSET = -1000;
 RADAR_START_OFFSET = 1000;
 
+% Recording source selection on Android:
+% true  -> force standard MIC path
+% false -> prefer UNPROCESSED, fallback to VOICE_RECOGNITION
+AUDIO_ENABLE_PROCESSING = true;
+
 server_ip = '127.0.0.1';
 server_port = 8080;
 scenes_version = '_v2';
@@ -109,6 +114,7 @@ fclose(log_fid);
 captureOptions = struct();
 captureOptions.device_id = device_id;
 captureOptions.mode = 'pro';
+captureOptions.process = AUDIO_ENABLE_PROCESSING;
 captureOptions.server_audio_root = ultrasonic_server_audio_root;
 captureOptions.ultrasonic = ultrasonic_config;
 captureOptions.delete_after_forward = true;
@@ -123,6 +129,7 @@ fprintf('\n========== Ready to Capture V2 ==========\n');
 fprintf('Action scenes: %d\n', length(actionScenes));
 fprintf('Repeat count: %d\n', repeat_count);
 fprintf('Total captures planned: %d\n', length(actionScenes) * repeat_count);
+fprintf('Audio source mode: %s\n', ternaryText(AUDIO_ENABLE_PROCESSING, 'MIC', 'UNPROCESSED/VOICE_RECOGNITION'));
 
 user_requested_exit = false;
 for scene_idx = 1:length(actionScenes)
@@ -347,6 +354,14 @@ end
 
 function text = sanitizeCsv(text)
     text = strrep(char(string(text)), ',', ';');
+end
+
+function text = ternaryText(flag, trueText, falseText)
+    if flag
+        text = trueText;
+    else
+        text = falseText;
+    end
 end
 
 function [routePreset, hasPreset] = readRoutePreset(ultrasonic_config)
